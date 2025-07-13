@@ -64,7 +64,8 @@ async def lifespan(app: FastAPI):
         )
         clinical_trial_service = ClinicalTrialService(
             db_adapter=db_adapter,
-            clinical_trials_adapter=clinical_trials_adapter
+            clinical_trials_adapter=clinical_trials_adapter,
+            llm_adapter=llm_adapter
         )
         
         # Initialize handlers with services
