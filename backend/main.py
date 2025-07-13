@@ -55,14 +55,16 @@ async def lifespan(app: FastAPI):
         clinical_trials_adapter = CTGV2_0_4Adapter()
         
         # Initialize services with dependencies
-        # TODO: pass adapters to services once i finish implementing them
         logger.info("Initializing services...")
         transcript_service = TranscriptService(
             db_adapter=db_adapter,
             llm_adapter=llm_adapter,
             transcript_analyzer_adapter=transcript_analyzer_adapter
         )
-        clinical_trial_service = ClinicalTrialService()
+        clinical_trial_service = ClinicalTrialService(
+            db_adapter=db_adapter,
+            clinical_trials_adapter=clinical_trials_adapter
+        )
         
         # Initialize handlers with services
         logger.info("Initializing handlers...")

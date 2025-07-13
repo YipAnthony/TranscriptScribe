@@ -12,12 +12,12 @@ fastapi = "^0.104.1"
 uvicorn = {extras = ["standard"], version = "^0.24.0"}
 google-generativeai = "^0.3.2"
 crewai = "^0.11.0"
-supabase = "^2.0.2"
 redis = "^5.0.1"
-httpx = "^0.25.2"
+httpx = "^0.28.1"
 python-dotenv = "^1.0.0"
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
+supabase = "^2.16.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"

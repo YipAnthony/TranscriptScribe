@@ -117,8 +117,9 @@ supabase status
 poetry run python main.py
 ```
 
-### Run Unit Tests
+### Run Backend Unit Tests
 ```bash
+cd backend
 poetry run pytest
 ```
 

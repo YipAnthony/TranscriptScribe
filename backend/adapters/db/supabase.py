@@ -46,56 +46,42 @@ class SupabaseAdapter(DatabasePort):
     def create_transcript(self, patient_id: str, parsed_transcript: ParsedTranscript, recorded_at: Optional[str] = None) -> str:
         """Create a new transcript record"""
         try:
-            # Convert parsed transcript to JSON-serializable format
-            location_data = None
-            if parsed_transcript.location:
-                location_data = {
-                    "street": parsed_transcript.location.street,
-                    "city": parsed_transcript.location.city,
-                    "state": parsed_transcript.location.state,
-                    "zip_code": parsed_transcript.location.zip_code,
-                    "country": parsed_transcript.location.country
-                }
-            
-            parsed_data = {
+            # Flatten location fields
+            location = parsed_transcript.location
+            transcript_data = {
+                "patient_id": patient_id,
+                "recorded_at": recorded_at,
+                "status": "COMPLETED",
                 "conditions": parsed_transcript.conditions,
                 "interventions": parsed_transcript.interventions,
-                "location": location_data,
+                "street": location.street if location else None,
+                "city": location.city if location else None,
+                "state": location.state if location else None,
+                "zip_code": location.zip_code if location else None,
+                "country": location.country if location else None,
                 "sex": parsed_transcript.sex,
                 "age": parsed_transcript.age
             }
-            
-            transcript_data = {
-                "patient_id": patient_id,
-                "parsed_transcript": parsed_data,
-                "recorded_at": recorded_at,
-                "status": "COMPLETED"
-            }
-            
             result = self.client.table("transcripts").insert(transcript_data).execute()
-            
             if result.data:
                 transcript_id = result.data[0]["id"]
                 logger.info(f"Created transcript with ID: {transcript_id}")
                 return transcript_id
             else:
                 raise Exception("Failed to create transcript - no data returned")
-                
         except Exception as e:
             logger.error(f"Error creating transcript: {e}")
             raise
-    
+
     def get_transcript(self, transcript_id: str) -> ParsedTranscript:
         """Get transcript by ID"""
         try:
             result = self.client.table("transcripts").select("*").eq("id", transcript_id).execute()
-            
             if result.data:
                 transcript_data = result.data[0]
-                return self._dict_to_parsed_transcript(transcript_data["parsed_transcript"])
+                return self._row_to_parsed_transcript(transcript_data)
             else:
                 raise TranscriptNotFoundError(f"Transcript with ID {transcript_id} not found")
-                
         except TranscriptNotFoundError:
             raise
         except Exception as e:
@@ -119,37 +105,23 @@ class SupabaseAdapter(DatabasePort):
     def update_parsed_transcript(self, transcript_id: str, parsed_transcript: ParsedTranscript) -> None:
         """Update transcript with parsed data"""
         try:
-            # Convert parsed transcript to JSON-serializable format
-            location_data = None
-            if parsed_transcript.location:
-                location_data = {
-                    "street": parsed_transcript.location.street,
-                    "city": parsed_transcript.location.city,
-                    "state": parsed_transcript.location.state,
-                    "zip_code": parsed_transcript.location.zip_code,
-                    "country": parsed_transcript.location.country
-                }
-            
-            parsed_data = {
+            location = parsed_transcript.location
+            update_data = {
                 "conditions": parsed_transcript.conditions,
                 "interventions": parsed_transcript.interventions,
-                "location": location_data,
+                "street": location.street if location else None,
+                "city": location.city if location else None,
+                "state": location.state if location else None,
+                "zip_code": location.zip_code if location else None,
+                "country": location.country if location else None,
                 "sex": parsed_transcript.sex,
-                "age": parsed_transcript.age
-            }
-            
-            update_data = {
-                "parsed_transcript": parsed_data,
+                "age": parsed_transcript.age,
                 "status": "COMPLETED"
             }
-            
             result = self.client.table("transcripts").update(update_data).eq("id", transcript_id).execute()
-            
             if not result.data:
                 raise Exception(f"Transcript with ID {transcript_id} not found")
-                
             logger.info(f"Updated transcript {transcript_id} with parsed data")
-            
         except Exception as e:
             logger.error(f"Error updating parsed transcript {transcript_id}: {e}")
             raise
@@ -204,23 +176,18 @@ class SupabaseAdapter(DatabasePort):
             address=address
         )
     
-    def _dict_to_parsed_transcript(self, parsed_data: Dict[str, Any]) -> ParsedTranscript:
-        """Convert database dict to ParsedTranscript domain object"""
-        location = None
-        if parsed_data.get("location"):
-            location_data = parsed_data["location"]
-            location = Address(
-                street=location_data.get("street"),
-                city=location_data.get("city"),
-                state=location_data.get("state"),
-                zip_code=location_data.get("zip_code"),
-                country=location_data.get("country")
-            )
-        
+    def _row_to_parsed_transcript(self, row: Dict[str, Any]) -> ParsedTranscript:
+        location = Address(
+            street=row.get("street"),
+            city=row.get("city"),
+            state=row.get("state"),
+            zip_code=row.get("zip_code"),
+            country=row.get("country")
+        ) if row.get("street") else None
         return ParsedTranscript(
-            conditions=parsed_data.get("conditions", []),
-            interventions=parsed_data.get("interventions", []),
+            conditions=row.get("conditions", []),
+            interventions=row.get("interventions", []),
             location=location,
-            sex=parsed_data.get("sex"),
-            age=parsed_data.get("age")
+            sex=row.get("sex"),
+            age=row.get("age")
         )
