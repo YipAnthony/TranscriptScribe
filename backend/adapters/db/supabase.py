@@ -53,14 +53,27 @@ class SupabaseAdapter(DatabasePort):
                 "recorded_at": recorded_at,
                 "status": "COMPLETED",
                 "conditions": parsed_transcript.conditions,
-                "interventions": parsed_transcript.interventions,
+                "medications": parsed_transcript.medications,
+                "procedures": parsed_transcript.procedures,
                 "street": location.street if location else None,
                 "city": location.city if location else None,
                 "state": location.state if location else None,
                 "zip_code": location.zip_code if location else None,
                 "country": location.country if location else None,
                 "sex": parsed_transcript.sex,
-                "age": parsed_transcript.age
+                "age": parsed_transcript.age,
+                "positive_symptoms": parsed_transcript.positive_symptoms,
+                "negative_symptoms": parsed_transcript.negative_symptoms,
+                "positive_lab_results": parsed_transcript.positive_lab_results,
+                "negative_lab_results": parsed_transcript.negative_lab_results,
+                "positive_imaging_results": parsed_transcript.positive_imaging_results,
+                "negative_imaging_results": parsed_transcript.negative_imaging_results,
+                "past_diagnoses": parsed_transcript.past_diagnoses,
+                "past_surgeries": parsed_transcript.past_surgeries,
+                "family_history": parsed_transcript.family_history,
+                "positive_lifestyle_factors": parsed_transcript.positive_lifestyle_factors,
+                "negative_lifestyle_factors": parsed_transcript.negative_lifestyle_factors,
+                "extraction_notes": parsed_transcript.extraction_notes
             }
             result = self.client.table("transcripts").insert(transcript_data).execute()
             if result.data:
@@ -108,7 +121,8 @@ class SupabaseAdapter(DatabasePort):
             location = parsed_transcript.location
             update_data = {
                 "conditions": parsed_transcript.conditions,
-                "interventions": parsed_transcript.interventions,
+                "medications": parsed_transcript.medications,
+                "procedures": parsed_transcript.procedures,
                 "street": location.street if location else None,
                 "city": location.city if location else None,
                 "state": location.state if location else None,
@@ -116,6 +130,18 @@ class SupabaseAdapter(DatabasePort):
                 "country": location.country if location else None,
                 "sex": parsed_transcript.sex,
                 "age": parsed_transcript.age,
+                "positive_symptoms": parsed_transcript.positive_symptoms,
+                "negative_symptoms": parsed_transcript.negative_symptoms,
+                "positive_lab_results": parsed_transcript.positive_lab_results,
+                "negative_lab_results": parsed_transcript.negative_lab_results,
+                "positive_imaging_results": parsed_transcript.positive_imaging_results,
+                "negative_imaging_results": parsed_transcript.negative_imaging_results,
+                "past_diagnoses": parsed_transcript.past_diagnoses,
+                "past_surgeries": parsed_transcript.past_surgeries,
+                "family_history": parsed_transcript.family_history,
+                "positive_lifestyle_factors": parsed_transcript.positive_lifestyle_factors,
+                "negative_lifestyle_factors": parsed_transcript.negative_lifestyle_factors,
+                "extraction_notes": parsed_transcript.extraction_notes,
                 "status": "COMPLETED"
             }
             result = self.client.table("transcripts").update(update_data).eq("id", transcript_id).execute()
@@ -186,8 +212,21 @@ class SupabaseAdapter(DatabasePort):
         ) if row.get("street") else None
         return ParsedTranscript(
             conditions=row.get("conditions", []),
-            interventions=row.get("interventions", []),
+            medications=row.get("medications", []),
+            procedures=row.get("procedures", []),
             location=location,
             sex=row.get("sex"),
-            age=row.get("age")
+            age=row.get("age"),
+            positive_symptoms=row.get("positive_symptoms", []),
+            negative_symptoms=row.get("negative_symptoms", []),
+            positive_lab_results=row.get("positive_lab_results", []),
+            negative_lab_results=row.get("negative_lab_results", []),
+            positive_imaging_results=row.get("positive_imaging_results", []),
+            negative_imaging_results=row.get("negative_imaging_results", []),
+            past_diagnoses=row.get("past_diagnoses", []),
+            past_surgeries=row.get("past_surgeries", []),
+            family_history=row.get("family_history", []),
+            positive_lifestyle_factors=row.get("positive_lifestyle_factors", []),
+            negative_lifestyle_factors=row.get("negative_lifestyle_factors", []),
+            extraction_notes=row.get("extraction_notes", [])
         )

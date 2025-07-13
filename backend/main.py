@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     try:
         # Import classes (done here to avoid circular imports)
         from adapters.llm.gemini import GeminiAdapter
-        from adapters.transcript_analyzer.crewai import CrewAITranscriptAnalyzer
+        from adapters.transcript_analyzer.gemini import GeminiTranscriptAnalyzer
         from adapters.db.supabase import SupabaseAdapter
         from adapters.clinical_trials.ctg_v2_0_4 import CTGV2_0_4Adapter
         from core.services.transcript_service import TranscriptService
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
         if not llm_api_key:
             raise ValueError("GOOGLE_AI_API_KEY is not set")
         llm_adapter = GeminiAdapter(api_key=llm_api_key)
-        transcript_analyzer_adapter = CrewAITranscriptAnalyzer()
+        transcript_analyzer_adapter = GeminiTranscriptAnalyzer(llm_adapter=llm_adapter)
         
         # Initialize and test database connection
         logger.info("Initializing database adapter...")

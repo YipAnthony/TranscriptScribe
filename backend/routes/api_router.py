@@ -35,12 +35,8 @@ async def process_transcript(
     transcript_handler = Depends(get_transcript_handler)
 ) -> TranscriptResponse:
     """Process a transcript"""
-    # TODO: Implement transcript processing with actual handler
-    logger.info("Transcript processing endpoint called")
-    raise HTTPException(
-        status_code=501, 
-        detail="Transcript processing not yet implemented"
-    )
+    logger.info(f"Processing transcript for patient: {request.patient_id}")
+    return transcript_handler.process_transcript(request)
 
 # Clinical trial endpoints
 @api_router.post("/clinical-trials/recommendations", response_model=GetClinicalTrialRecommendationsResponse)

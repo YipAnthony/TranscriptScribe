@@ -30,16 +30,22 @@ class TranscriptService:
             str: The created transcript ID
         """
         try:
+            logger.info(f"Processing transcript for patient {patient_id}")
+            
             # Analyze transcript using CrewAI first
+            logger.info("Starting transcript analysis...")
             parsed_transcript = self.transcript_analyzer_adapter.analyze_transcript(raw_transcript)
+            logger.info(f"Transcript analysis completed: {parsed_transcript}")
             
             # Create transcript record in database with parsed data
+            logger.info("Storing transcript to database...")
             transcript_id = self.db_adapter.create_transcript(
                 patient_id=patient_id,
                 parsed_transcript=parsed_transcript,
                 recorded_at=recorded_at
             )
             
+            logger.info(f"Transcript processed successfully with ID: {transcript_id}")
             return transcript_id
             
         except Exception as e:

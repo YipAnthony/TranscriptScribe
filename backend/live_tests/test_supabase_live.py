@@ -86,16 +86,47 @@ def test_create_and_get_transcript(adapter: SupabaseAdapter) -> None:
     
     test_parsed_transcript = ParsedTranscript(
         conditions=["diabetes", "hypertension"],
-        interventions=["metformin", "lifestyle changes"],
+        medications=["metformin", "lisinopril"],
+        procedures=["blood pressure monitoring"],
         location=test_location,
-        sex="M",
-        age=45
+        sex="MALE",
+        age=45,
+        positive_symptoms=["fatigue", "thirst"],
+        negative_symptoms=["chest pain"],
+        positive_lab_results=["elevated glucose"],
+        negative_lab_results=["normal kidney function"],
+        positive_imaging_results=[],
+        negative_imaging_results=["normal chest x-ray"],
+        past_diagnoses=["prediabetes"],
+        past_surgeries=["appendectomy"],
+        family_history=["diabetes in father"],
+        positive_lifestyle_factors=["regular exercise"],
+        negative_lifestyle_factors=["poor diet"],
+        extraction_notes=["Patient reports good medication compliance"]
     )
     
-    # Test creating a transcript (this will fail if patient doesn't exist)
+    # Create a test patient first
+    test_patient_data = {
+        "id": test_patient_id,
+        "external_id": f"TEST_PATIENT_{test_patient_id[:8]}",
+        "first_name": "Test",
+        "last_name": "Patient",
+        "date_of_birth": "1978-01-01",
+        "sex": "MALE",
+        "email": "test.patient@example.com",
+        "phone": "555-123-4567"
+    }
+    
     try:
+        # Insert the test patient directly into the database
+        patient_result = adapter.client.table("patients").insert(test_patient_data).execute()
+        if not patient_result.data:
+            raise Exception("Failed to create test patient")
+        logger.info(f"✅ Created test patient with ID: {test_patient_id}")
+        
+        # Now create the transcript
         transcript_id = adapter.create_transcript(
-            patient_id=test_patient_id,  # This patient likely doesn't exist
+            patient_id=test_patient_id,
             parsed_transcript=test_parsed_transcript,
             recorded_at=datetime.now().isoformat()
         )
@@ -107,23 +138,41 @@ def test_create_and_get_transcript(adapter: SupabaseAdapter) -> None:
         
         # Verify the data matches
         assert retrieved_transcript.conditions == test_parsed_transcript.conditions
-        assert retrieved_transcript.interventions == test_parsed_transcript.interventions
+        assert retrieved_transcript.medications == test_parsed_transcript.medications
+        assert retrieved_transcript.procedures == test_parsed_transcript.procedures
         assert retrieved_transcript.sex == test_parsed_transcript.sex
         assert retrieved_transcript.age == test_parsed_transcript.age
+        assert retrieved_transcript.positive_symptoms == test_parsed_transcript.positive_symptoms
+        assert retrieved_transcript.negative_symptoms == test_parsed_transcript.negative_symptoms
+        assert retrieved_transcript.positive_lab_results == test_parsed_transcript.positive_lab_results
+        assert retrieved_transcript.negative_lab_results == test_parsed_transcript.negative_lab_results
+        assert retrieved_transcript.positive_imaging_results == test_parsed_transcript.positive_imaging_results
+        assert retrieved_transcript.negative_imaging_results == test_parsed_transcript.negative_imaging_results
+        assert retrieved_transcript.past_diagnoses == test_parsed_transcript.past_diagnoses
+        assert retrieved_transcript.past_surgeries == test_parsed_transcript.past_surgeries
+        assert retrieved_transcript.family_history == test_parsed_transcript.family_history
+        assert retrieved_transcript.positive_lifestyle_factors == test_parsed_transcript.positive_lifestyle_factors
+        assert retrieved_transcript.negative_lifestyle_factors == test_parsed_transcript.negative_lifestyle_factors
+        assert retrieved_transcript.extraction_notes == test_parsed_transcript.extraction_notes
         logger.info("✅ Retrieved transcript data matches original")
         
-        # Clean up: delete the test transcript
-        adapter.delete_transcript(transcript_id)
-        logger.info(f"✅ Deleted test transcript with ID: {transcript_id}")
-        
     except Exception as e:
-        if "patient" in str(e).lower():
-            logger.warning("⚠️  Could not create transcript because test patient doesn't exist")
-            logger.info("   This is expected - you would need to create a patient first")
-            pytest.skip("Test patient doesn't exist - skipping transcript creation test")
-        else:
-            logger.error(f"❌ Error creating/retrieving transcript: {e}")
-            raise
+        logger.error(f"❌ Error creating/retrieving transcript: {e}")
+        raise
+    
+    finally:
+        # Clean up: delete the test transcript and patient
+        try:
+            adapter.delete_transcript(transcript_id)
+            logger.info(f"✅ Deleted test transcript with ID: {transcript_id}")
+        except Exception as e:
+            logger.warning(f"⚠️  Could not delete test transcript: {e}")
+        
+        try:
+            adapter.client.table("patients").delete().eq("id", test_patient_id).execute()
+            logger.info(f"✅ Deleted test patient with ID: {test_patient_id}")
+        except Exception as e:
+            logger.warning(f"⚠️  Could not delete test patient: {e}")
 
 def test_transcript_error_handling(adapter: SupabaseAdapter) -> None:
     """Test error handling for non-existent transcripts"""

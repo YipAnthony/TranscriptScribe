@@ -148,7 +148,7 @@ poetry run pytest tests/ --cov=. --cov-report=html
 **Running Live Tests:**
 ```bash
 # Run all live tests (requires API keys, from .env file)
-poetry run pytest live_tests/ -v
+poetry run pytest live_tests/ -v -s
 
 # Run specific live test
 poetry run pytest live_tests/test_llm_gemini_live.py -v
