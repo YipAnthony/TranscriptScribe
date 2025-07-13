@@ -3,71 +3,130 @@
 
 ### Core: business logic
 - #### Services
-    - Transcript Processor
-    - Trial Matcher
-- ### Domain Models
-    - patient
-    - parsed_transcript
-    - clinical_trial
+    - Transcript Service
+    - Clinical Trial Service
+### Domain: business entities
+- patient
+- parsed_transcript
+- clinical_trial
 ### Ports
 - LLM
-- Agents/Workflow
+- Transcript Analyzer
 - DB
-- EventQueue
 - ClinicalTrials
 
 ### Adapter
 - LLM: Gemini 2.0 flash
-- Agents/Workflow: CrewAI
+- Transcript Analyzer: CrewAI
 - DB: Supabase (postgres)
-- EventQueue: event queue service
 - Clinical Trails: clinicaltrails.gov api
 
 ## Directory Overview
 ```
-deepscribe-app/
+backend/
 │
-├── core/
-│   ├── services/
-│   │   ├── transcript_processor.py         # Parses transcript via LLM & stores to our db
-│   │   ├── trial_matcher.py                # Finds matching trials based on patient profile
-│   │   
-│   │
-│   ├── domain_models/
-│   │   ├── patient.py
-│   │   ├── parsed_transcript.py
-│   │   ├── clinical_trial.py
+├── domain/                  # Business entities
+│   ├── patient.py
+│   ├── parsed_transcript.py
+│   └── clinical_trial.py
 │
-├── ports/
-│   ├── llm.py                  # call_llm(prompt: str) -> str
-│   ├── agents.py               # create_agent(config: dict) -> Agent / run_agent(agent, input)
-│   ├── db.py                   # create_parsed_transcript(data), get_parsed_transcript(id)
-│   ├── event_queue.py          # add_event(event: Event)
-│   ├── clinical_trials.py      # find_trials(patient_profile: PatientProfile) -> list[ClinicalTrial]
+├── core/                    # Business logic
+│   └── services/
+│       ├── transcript_service.py           # Handles transcript processing and storage
+│       └── clinical_trial_service.py       # Finds recommended trials based on patient profile
 │
-├── adapters/
+├── ports/                   # Interface definitions
+│   ├── llm.py                  # Interface for all LLM integration
+│   ├── transcript_analyzer.py  # Interface for analyzing raw appointment transcripts
+│   ├── db.py                   # Interface for db operations
+│   ├── clinical_trials.py      # Interface for accessing clinical trails info
+├── adapters/                # External service implementations
 │   ├── llm/
 │   │   └── gemini.py              # Implemented via gemini 2.0 flash (bc cheap)
-│   ├── agents/
+│   ├── transcript_analyzer/
 │   │   └── crewai.py              # Implemented via crewai module
 │   ├── db/
 │   │   └── supabase.py            # Implemented via supabase
-│   ├── event_queue/
-│   │   └── event_queue.py         # Implemented by calling our own eventqueue service
 │   ├── clinical_trials/
-│   │   └── ctg_v2_0_4.py          # Implements find_trials() using v2.0.4 of CTG api
+│   │   └── ctg_v2_0_4.py          # Implemented via v2.0.4 of CTG api
 │
-├── handlers/
+├── schemas/                 # API request/response models (Pydantic)
 │   ├── transcript.py
-│   ├── trial.py
+│   └── clinical_trial.py
 │
-├── routes/
+├── handlers/                # HTTP request handlers
+│   ├── transcript.py
+│   └── clinical_trial.py
+│
+├── routes/                  # API routes
 │   └── api_router.py
 │
 ├── main.py
+├── pyproject.toml              # Poetry configuration
+├── poetry.lock                 # Poetry lock file
+├── env.example                 # Environment variables template
 │
 ├── tests/
 │   ├── core/
 │   ├── adapters/
 │   ├── handlers/
 
+```
+
+## Setup Instructions
+
+### Prerequisites
+- Python 3.10+
+- Poetry (for dependency management)
+- Supabase account and project
+
+### Installation
+
+1. **Install Poetry** (if not already installed):
+   ```bash
+   curl -sSL https://install.python-poetry.org | python3 -
+   ```
+
+2. **Navigate to backend directory**:
+   ```bash
+   cd backend
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   poetry install
+   ```
+
+4. **Set up environment variables**:
+   ```bash
+   cp env.example .env
+   # Edit .env with your actual values
+   ```
+
+5. **Run the application**:
+   ```bash
+   poetry run python main.py
+   ```
+
+### Development
+
+- **Run tests**: `poetry run pytest`
+- **Format code**: `poetry run black .`
+- **Sort imports**: `poetry run isort .`
+- **Type checking**: `poetry run mypy .`
+- **Lint code**: `poetry run flake8 .`
+
+### Architecture
+
+This backend follows a clean architecture pattern with clear separation of concerns:
+
+- **Domain**: Contains business entities and domain models
+- **Core**: Contains business logic and use cases
+- **Ports**: Define interfaces for external dependencies
+- **Adapters**: Implement external service integrations
+- **Schemas**: API request/response models (Pydantic)
+- **Handlers**: Handle HTTP requests and coordinate between layers
+
+### Future Nice To Haves
+- Event queue integration.
+- Emit new_recommended_trails event, have some event handler forwarding to a messaging service for patients.
