@@ -1,4 +1,4 @@
-from ...ports.llm import LLMPort
+from ports.llm import LLMPort
 
 class GeminiAdapter(LLMPort):
     def __init__(self):

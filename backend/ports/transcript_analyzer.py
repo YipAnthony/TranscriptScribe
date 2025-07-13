@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Union
-from ..domain.parsed_transcript import ParsedTranscript
+from domain.parsed_transcript import ParsedTranscript
 
 class TranscriptAnalyzerPort(ABC):
     @abstractmethod

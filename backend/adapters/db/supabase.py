@@ -1,5 +1,5 @@
-from ...ports.db import DatabasePort
-from ...domain.parsed_transcript import ParsedTranscript
+from ports.db import DatabasePort
+from domain.parsed_transcript import ParsedTranscript
 
 class SupabaseAdapter(DatabasePort):
     def __init__(self):

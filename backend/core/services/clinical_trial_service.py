@@ -1,6 +1,6 @@
-from ...domain.patient import Patient
-from ...domain.parsed_transcript import ParsedTranscript
-from ...domain.clinical_trial import ClinicalTrial
+from domain.patient import Patient
+from domain.parsed_transcript import ParsedTranscript
+from domain.clinical_trial import ClinicalTrial
 
 class ClinicalTrialService:
     def __init__(self):

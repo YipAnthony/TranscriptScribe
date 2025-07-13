@@ -1,7 +1,7 @@
-from ...ports.clinical_trials import ClinicalTrialsPort
-from ...domain.patient import Patient
-from ...domain.parsed_transcript import ParsedTranscript
-from ...domain.clinical_trial import ClinicalTrial, SourceRegistry
+from ports.clinical_trials import ClinicalTrialsPort
+from domain.patient import Patient
+from domain.parsed_transcript import ParsedTranscript
+from domain.clinical_trial import ClinicalTrial, SourceRegistry
 
 class CTGV2_0_4Adapter(ClinicalTrialsPort):
     """

@@ -1,6 +1,6 @@
 from typing import Union
-from ...ports.transcript_analyzer import TranscriptAnalyzerPort
-from ...domain.parsed_transcript import ParsedTranscript
+from ports.transcript_analyzer import TranscriptAnalyzerPort
+from domain.parsed_transcript import ParsedTranscript
 
 class CrewAITranscriptAnalyzer(TranscriptAnalyzerPort):
     def __init__(self):

@@ -1,5 +1,5 @@
-from ..schemas.transcript import TranscriptUploadRequest, TranscriptResponse
-from ..core.services.transcript_service import TranscriptService
+from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
+from core.services.transcript_service import TranscriptService
 
 class TranscriptHandler:
     def __init__(self, transcript_service: TranscriptService):

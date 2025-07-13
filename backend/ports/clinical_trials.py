@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from ..domain.patient import Patient
-from ..domain.clinical_trial import ClinicalTrial
-from ..domain.parsed_transcript import ParsedTranscript
+from domain.patient import Patient
+from domain.clinical_trial import ClinicalTrial
+from domain.parsed_transcript import ParsedTranscript
 
 class ClinicalTrialsPort(ABC):
     @abstractmethod

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from ..domain.parsed_transcript import ParsedTranscript
+from domain.parsed_transcript import ParsedTranscript
 
 class DatabasePort(ABC):
     @abstractmethod

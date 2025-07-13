@@ -1,4 +1,4 @@
-from ..schemas.clinical_trial import (
+from schemas.clinical_trial import (
     GetClinicalTrialRecommendationsRequest, 
     GetClinicalTrialRecommendationsResponse,
     GetClinicalTrialRequest,
@@ -6,7 +6,7 @@ from ..schemas.clinical_trial import (
     ClinicalTrialPreviewResponse,
     ClinicalTrialDetailedResponse
 )
-from ..core.services.clinical_trial_service import ClinicalTrialService
+from core.services.clinical_trial_service import ClinicalTrialService
 
 class ClinicalTrialHandler:
     def __init__(self, trial_service: ClinicalTrialService):

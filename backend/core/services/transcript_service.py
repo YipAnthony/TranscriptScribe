@@ -1,4 +1,4 @@
-from ...domain.patient import Patient
+from domain.patient import Patient
 
 class TranscriptService:
     def __init__(self):

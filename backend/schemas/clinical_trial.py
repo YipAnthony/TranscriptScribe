@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from ..domain.clinical_trial import ClinicalTrial, SourceRegistry
 
 class GetClinicalTrialRecommendationsRequest(BaseModel):
     """API request for getting clinical trial recommendations"""
