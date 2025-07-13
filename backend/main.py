@@ -35,7 +35,11 @@ async def lifespan(app: FastAPI):
         
         # Initialize adapters
         logger.info("Initializing adapters...")
-        llm_adapter = GeminiAdapter()
+        import os
+        llm_api_key = os.getenv("GOOGLE_AI_API_KEY")
+        if not llm_api_key:
+            raise ValueError("GOOGLE_AI_API_KEY is not set")
+        llm_adapter = GeminiAdapter(api_key=llm_api_key)
         transcript_analyzer_adapter = CrewAITranscriptAnalyzer()
         
         # Initialize and test database connection
