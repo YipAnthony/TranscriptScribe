@@ -37,13 +37,31 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing adapters...")
         llm_adapter = GeminiAdapter()
         transcript_analyzer_adapter = CrewAITranscriptAnalyzer()
+        
+        # Initialize and test database connection
+        logger.info("Initializing database adapter...")
         db_adapter = SupabaseAdapter()
+        
+        # Test database connectivity
+        try:
+            logger.info("Testing database connectivity...")
+            # Test a simple operation - try to get a non-existent transcript
+            db_adapter.get_transcript("test-connection")
+            logger.info("Database connection successful")
+        except Exception as e:
+            logger.error(f"Database connection failed: {e}")
+            raise RuntimeError(f"Failed to connect to database: {e}")
+        
         clinical_trials_adapter = CTGV2_0_4Adapter()
         
         # Initialize services with dependencies
         # TODO: pass adapters to services once i finish implementing them
         logger.info("Initializing services...")
-        transcript_service = TranscriptService()
+        transcript_service = TranscriptService(
+            db_adapter=db_adapter,
+            llm_adapter=llm_adapter,
+            transcript_analyzer_adapter=transcript_analyzer_adapter
+        )
         clinical_trial_service = ClinicalTrialService()
         
         # Initialize handlers with services

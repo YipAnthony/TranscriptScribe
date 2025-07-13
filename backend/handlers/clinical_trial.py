@@ -7,6 +7,7 @@ from schemas.clinical_trial import (
     ClinicalTrialDetailedResponse
 )
 from core.services.clinical_trial_service import ClinicalTrialService
+from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError, TrialNotFoundError
 
 class ClinicalTrialHandler:
     def __init__(self, trial_service: ClinicalTrialService):
@@ -37,13 +38,16 @@ class ClinicalTrialHandler:
                 search_criteria=request.search_criteria or {}
             )
             
-        except Exception as e:
-            # Return empty response with error
+        except (PatientNotFoundError, TranscriptNotFoundError) as e:
+            # Return empty response for not found errors
             return GetClinicalTrialRecommendationsResponse(
                 trials=[],
                 total_count=0,
                 search_criteria=request.search_criteria or {}
             )
+        except Exception as e:
+            # Re-raise other exceptions to be handled by the API layer
+            raise e
     
     def handle_get_clinical_trial(self, request: GetClinicalTrialRequest) -> GetClinicalTrialResponse:
         """
@@ -60,6 +64,9 @@ class ClinicalTrialHandler:
             # Transform to API response
             return GetClinicalTrialResponse(trial=detailed_response)
             
+        except TrialNotFoundError as e:
+            # Re-raise not found errors to be handled by the API layer
+            raise e
         except Exception as e:
-            # Re-raise the exception to be handled by the API layer
+            # Re-raise other exceptions to be handled by the API layer
             raise e 

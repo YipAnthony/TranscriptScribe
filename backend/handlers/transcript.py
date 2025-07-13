@@ -13,7 +13,7 @@ class TranscriptHandler:
             self.transcript_service.process_raw_transcript(
                 patient_id=request.patient_id,
                 raw_transcript=request.raw_transcript,
-                recorded_at=request.recorded_at
+                recorded_at=request.recorded_at.isoformat() if request.recorded_at else None
             )
             return TranscriptResponse(status="success", error=None)
         except Exception as e:

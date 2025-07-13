@@ -49,7 +49,11 @@ TranscriptScribe/
 │   ├── poetry.lock          # Poetry lock file
 │   ├── env.example          # Environment variables template
 │   └── README.md            # Backend documentation
-│
+├── supabase/                # Database migrations and configuration
+│   ├── config.toml          # Supabase configuration
+│   ├── migrations/          # Database migration files
+│   ├── seed/                # Seed data files
+│   └── README.md            # Database setup documentation
 └── README.md                # This file
 ```
 
@@ -101,6 +105,15 @@ cd backend
 poetry install
 cp env.example .env
 # Edit .env with your actual values
+
+# Start local Supabase database
+cd ..
+supabase start
+
+# Verify database is running
+supabase status
+
+# Start the API server
 poetry run python main.py
 ```
 
@@ -108,3 +121,12 @@ poetry run python main.py
 ```bash
 poetry run pytest
 ```
+
+### Database Migrations
+
+This project includes automated database migration deployment via GitHub Actions. When you push changes to `supabase/migrations/` files to the `main` branch, migrations are automatically deployed to your production Supabase instance.
+
+**Required GitHub Secrets:**
+- `SUPABASE_ACCESS_TOKEN`
+- `SUPABASE_DB_PASSWORD` 
+- `SUPABASE_PROJECT_REF`
