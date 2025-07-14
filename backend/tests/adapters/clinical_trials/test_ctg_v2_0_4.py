@@ -129,32 +129,12 @@ class TestCTGV2_0_4Adapter:
     
     def test_init(self):
         """Test adapter initialization"""
-        adapter = CTGV2_0_4Adapter(timeout=30)
+        adapter = CTGV2_0_4Adapter()
+        assert adapter.timeout == 30
+        assert adapter.client is not None
         assert adapter.VERSION == "2.0.4"
         assert adapter.SOURCE_REGISTRY == SourceRegistry.CLINICALTRIALS_GOV
         assert adapter.BASE_URL == "https://beta-ut.clinicaltrials.gov/api/v2"
-        assert adapter.timeout == 30
-        assert adapter.client is not None
-    
-    def test_find_recommended_clinical_trials_sync(self, ctg_adapter, sample_patient, sample_parsed_transcript):
-        """Test sync version returns empty list when called from async context"""
-        # Mock the async context scenario by patching asyncio.get_running_loop
-        with patch('asyncio.get_running_loop') as mock_get_loop:
-            mock_get_loop.side_effect = RuntimeError("no running event loop")
-            # Mock the async method to return empty list
-            with patch.object(ctg_adapter, 'find_recommended_clinical_trials_async', return_value=[]):
-                result = ctg_adapter.find_recommended_clinical_trials(sample_patient, sample_parsed_transcript)
-                assert result == []
-    
-    def test_get_clinical_trial_sync(self, ctg_adapter):
-        """Test sync version raises Exception when called from async context"""
-        # Mock the async context scenario by patching asyncio.get_running_loop
-        with patch('asyncio.get_running_loop') as mock_get_loop:
-            mock_get_loop.side_effect = RuntimeError("no running event loop")
-            # Mock the async method to raise an exception
-            with patch.object(ctg_adapter, 'get_clinical_trial_async', side_effect=Exception("Clinical trial with NCT ID NCT12345678 not found")):
-                with pytest.raises(Exception, match="Clinical trial with NCT ID NCT12345678 not found"):
-                    ctg_adapter.get_clinical_trial("NCT12345678")
     
     @pytest.mark.asyncio
     async def test_find_recommended_clinical_trials_async_success(self, ctg_adapter, sample_patient, sample_parsed_transcript, sample_trial_data):
@@ -166,7 +146,7 @@ class TestCTGV2_0_4Adapter:
         with patch.object(ctg_adapter.client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
-            result = await ctg_adapter.find_recommended_clinical_trials_async(sample_patient, sample_parsed_transcript)
+            result = await ctg_adapter.find_recommended_clinical_trials(sample_patient, sample_parsed_transcript)
             
             # Verify result
             assert len(result) == 1
@@ -193,7 +173,7 @@ class TestCTGV2_0_4Adapter:
         with patch.object(ctg_adapter.client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
-            result = await ctg_adapter.find_recommended_clinical_trials_async(sample_patient, sample_parsed_transcript)
+            result = await ctg_adapter.find_recommended_clinical_trials(sample_patient, sample_parsed_transcript)
             
             assert result == []
     
@@ -203,7 +183,7 @@ class TestCTGV2_0_4Adapter:
         with patch.object(ctg_adapter.client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = httpx.HTTPStatusError("404 Not Found", request=Mock(), response=Mock())
             
-            result = await ctg_adapter.find_recommended_clinical_trials_async(sample_patient, sample_parsed_transcript)
+            result = await ctg_adapter.find_recommended_clinical_trials(sample_patient, sample_parsed_transcript)
             
             assert result == []
     
@@ -217,7 +197,7 @@ class TestCTGV2_0_4Adapter:
         with patch.object(ctg_adapter.client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
             
-            result = await ctg_adapter.get_clinical_trial_async("NCT12345678")
+            result = await ctg_adapter.get_clinical_trial("NCT12345678")
             
             # Verify result
             assert isinstance(result, ClinicalTrial)
@@ -240,7 +220,7 @@ class TestCTGV2_0_4Adapter:
             mock_get.return_value = mock_response
             
             with pytest.raises(Exception, match="Clinical trial with NCT ID NCT12345678 not found"):
-                await ctg_adapter.get_clinical_trial_async("NCT12345678")
+                await ctg_adapter.get_clinical_trial("NCT12345678")
     
     def test_build_search_params_with_conditions_and_medications(self, ctg_adapter, sample_patient, sample_parsed_transcript):
         """Test search parameter building with conditions and medications"""

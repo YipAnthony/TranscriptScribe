@@ -191,6 +191,12 @@ class TestTranscriptFlowIntegration:
             search_criteria={"max_distance": 50}
         )
         
+        # Mock the eligibility filter agent response
+        mock_llm.call_llm_json.return_value = {
+            "eligible_trial_ids": ["NCT12345678"],
+            "uncertain_trial_ids": []
+        }
+        
         # Process through handler
         response = await clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
         
