@@ -5,7 +5,7 @@ AI-powered transcript processing and clinical trial matching platform.
 ## Overview
 
 ### Architecture
-1. **Backend**: Ports/Adapter Architecture with Python, Gemini Flash, CrewAI, CTG API
+1. **Backend**: Ports/Adapter Architecture with Python, Gemini Flash, CTG API
 2. **Frontend**: To be implemented (will use ShadCN + Supabase for quick setup)
 
 ## Project Structure
@@ -23,14 +23,11 @@ TranscriptScribe/
 │   │       └── clinical_trial_service.py
 │   ├── ports/               # Interface definitions
 │   │   ├── llm.py
-│   │   ├── transcript_analyzer.py
 │   │   ├── db.py
 │   │   └── clinical_trials.py
 │   ├── adapters/            # External service implementations
 │   │   ├── llm/
 │   │   │   └── gemini.py
-│   │   ├── transcript_analyzer/
-│   │   │   └── crewai.py
 │   │   ├── db/
 │   │   │   └── supabase.py
 │   │   └── clinical_trials/
@@ -40,10 +37,15 @@ TranscriptScribe/
 │   │   └── clinical_trial.py
 │   ├── routes/              # API routes
 │   │   └── api_router.py
-│   ├── tests/               # Test files
+│   ├── schemas/             # API request/response models
+│   │   ├── transcript.py
+│   │   └── clinical_trial.py
+│   ├── tests/               # Unit tests (fast, mocked)
 │   │   ├── core/
 │   │   ├── adapters/
 │   │   └── handlers/
+│   ├── live_tests/          # Live tests (require external services)
+│   ├── dependencies.py      # Dependency injection setup
 │   ├── main.py              # Application entry point
 │   ├── pyproject.toml       # Poetry configuration
 │   ├── poetry.lock          # Poetry lock file
@@ -64,7 +66,7 @@ TranscriptScribe/
 - **Architecture**: Ports/Adapter (Hexagonal Architecture)
 - **Dependency Management**: Poetry
 - **LLM**: Google Gemini 2.0 Flash
-- **Transcript Analysis**: CrewAI
+- **Transcript Analysis**: Direct LLM integration (business logic in service layer)
 - **Database**: Supabase (PostgreSQL)
 - **Clinical Trials**: ClinicalTrials.gov API v2.0.4
 - **Code Quality**: Black, isort, mypy, flake8
