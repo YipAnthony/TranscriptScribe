@@ -5,6 +5,7 @@ from ports.db import DatabasePort
 from ports.clinical_trials import ClinicalTrialsPort
 from ports.llm import LLMPort
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
+from typing import Dict, List
 import json
 import logging
 
@@ -16,7 +17,7 @@ class ClinicalTrialService:
         self.clinical_trials_adapter = clinical_trials_adapter
         self.llm_adapter = llm_adapter
     
-    def find_recommended_trials(self, patient_id: str, transcript_id: str) -> list[ClinicalTrial]:
+    def find_recommended_trials(self, patient_id: str, transcript_id: str) -> Dict[str, List[ClinicalTrial]]:
         """
         Find recommended clinical trials based on patient profile and appointment transcript.
         Uses a multi-agent approach with specialized agents for eligibility filtering and relevance ranking.
@@ -26,7 +27,7 @@ class ClinicalTrialService:
             transcript_id: ID of the transcript
             
         Returns:
-            list[ClinicalTrial]: List of recommended clinical trials ranked by relevance
+            Dict[str, List[ClinicalTrial]]: Dictionary with 'eligible_trials' and 'uncertain_trials' lists
             
         Raises:
             PatientNotFoundError: If patient is not found
@@ -43,37 +44,104 @@ class ClinicalTrialService:
         logger.info(f"Found {len(initial_trials)} initial clinical trials")
         
         if not initial_trials:
-            logger.info("No clinical trials found, returning empty list")
-            return []
+            logger.info("No clinical trials found, returning empty lists")
+            return {"eligible_trials": [], "uncertain_trials": []}
         
-        # 3. Agent 1: Eligibility Filter Agent - Filter out ineligible trials
+        # 3. Agent 1: Eligibility Filter Agent - Separate eligible and uncertain trials
         logger.info("Agent 1: Filtering trials by eligibility criteria")
-        eligible_trial_ids = self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
-        logger.info(f"Eligibility filter: {len(eligible_trial_ids)} trials passed screening")
-        
-        if not eligible_trial_ids:
-            logger.info("No eligible trials found after screening")
-            return []
+        eligibility_result = self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
+        eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
+        uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
+        logger.info(f"Eligibility filter: {len(eligible_trial_ids)} eligible, {len(uncertain_trial_ids)} uncertain")
         
         # 4. Agent 2: Relevance Ranking Agent - Rank eligible trials by relevance
-        logger.info("Agent 2: Ranking trials by relevance")
-        ranked_trial_ids = self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids)
-        logger.info(f"Relevance ranking: {len(ranked_trial_ids)} trials ranked by relevance")
+        ranked_eligible_trial_ids = []
+        if eligible_trial_ids:
+            logger.info("Agent 2: Ranking eligible trials by relevance")
+            ranked_eligible_trial_ids = self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids, "eligible")
+            logger.info(f"Relevance ranking (eligible): {len(ranked_eligible_trial_ids)} trials ranked")
         
-        # 5. Restructure response to include only ranked trials in order
-        logger.info(f"Returning {len(ranked_trial_ids)} recommended clinical trials")
-        recommended_trials = []
-        for trial_id in ranked_trial_ids:
+        # 5. Agent 2: Relevance Ranking Agent - Rank uncertain trials by relevance
+        ranked_uncertain_trial_ids = []
+        if uncertain_trial_ids:
+            logger.info("Agent 2: Ranking uncertain trials by relevance")
+            ranked_uncertain_trial_ids = self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
+            logger.info(f"Relevance ranking (uncertain): {len(ranked_uncertain_trial_ids)} trials ranked")
+        
+        # 6. Restructure response to include ranked trials in order
+        logger.info(f"Returning {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trials")
+        
+        eligible_trials = []
+        for trial_id in ranked_eligible_trial_ids:
             for trial in initial_trials:
                 if trial.external_id == trial_id:
-                    recommended_trials.append(trial)
+                    eligible_trials.append(trial)
                     break
         
-        return recommended_trials
+        uncertain_trials = []
+        for trial_id in ranked_uncertain_trial_ids:
+            for trial in initial_trials:
+                if trial.external_id == trial_id:
+                    uncertain_trials.append(trial)
+                    break
+        
+        return {
+            "eligible_trials": eligible_trials,
+            "uncertain_trials": uncertain_trials
+        }
     
-    def _eligibility_filter_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial]) -> list[str]:
+    def _create_comprehensive_patient_info(self, patient: Patient, parsed_transcript: ParsedTranscript) -> str:
         """
-        Agent 1: Clinical Trials Administrator - Filters trials based on eligibility criteria only.
+        Create comprehensive patient information prioritizing patient fields over parsed transcript fields.
+        
+        Args:
+            patient: Patient domain object
+            parsed_transcript: Parsed transcript domain object
+            
+        Returns:
+            str: Formatted patient information string
+        """
+        # Prioritize patient fields over parsed transcript fields
+        age = parsed_transcript.age if parsed_transcript.age is not None else (
+            f"{(patient.date_of_birth.year - 2024) if patient.date_of_birth else 'Unknown'}"
+        )
+        sex = patient.sex if patient.sex else parsed_transcript.sex
+        
+        patient_info = f"""
+            PATIENT PROFILE:
+            - Name: {patient.first_name} {patient.last_name}
+            - Age: {age}
+            - Sex: {sex or 'Not specified'}
+            - Location (city, state, country, zip code): {patient.city}, {patient.state}, {patient.country}, {patient.zip_code}
+
+            MEDICAL INFORMATION:
+            - Current Conditions: {', '.join(parsed_transcript.conditions) if parsed_transcript.conditions else 'None'}
+            - Current Medications: {', '.join(parsed_transcript.medications) if parsed_transcript.medications else 'None'}
+            - Procedures: {', '.join(parsed_transcript.procedures) if parsed_transcript.procedures else 'None'}
+            - Positive Symptoms: {', '.join(parsed_transcript.positive_symptoms) if parsed_transcript.positive_symptoms else 'None'}
+            - Negative Symptoms: {', '.join(parsed_transcript.negative_symptoms) if parsed_transcript.negative_symptoms else 'None'}
+            - Past Diagnoses: {', '.join(parsed_transcript.past_diagnoses) if parsed_transcript.past_diagnoses else 'None'}
+            - Past Surgeries: {', '.join(parsed_transcript.past_surgeries) if parsed_transcript.past_surgeries else 'None'}
+            - Family History: {', '.join(parsed_transcript.family_history) if parsed_transcript.family_history else 'None'}
+
+            LAB & IMAGING RESULTS:
+            - Positive Lab Results: {', '.join(parsed_transcript.positive_lab_results) if parsed_transcript.positive_lab_results else 'None'}
+            - Negative Lab Results: {', '.join(parsed_transcript.negative_lab_results) if parsed_transcript.negative_lab_results else 'None'}
+            - Positive Imaging Results: {', '.join(parsed_transcript.positive_imaging_results) if parsed_transcript.positive_imaging_results else 'None'}
+            - Negative Imaging Results: {', '.join(parsed_transcript.negative_imaging_results) if parsed_transcript.negative_imaging_results else 'None'}
+
+            LIFESTYLE FACTORS:
+            - Positive Lifestyle Factors: {', '.join(parsed_transcript.positive_lifestyle_factors) if parsed_transcript.positive_lifestyle_factors else 'None'}
+            - Negative Lifestyle Factors: {', '.join(parsed_transcript.negative_lifestyle_factors) if parsed_transcript.negative_lifestyle_factors else 'None'}
+
+            EXTRACTION NOTES:
+            - Notes: {', '.join(parsed_transcript.extraction_notes) if parsed_transcript.extraction_notes else 'None'}
+            """
+        return patient_info
+    
+    def _eligibility_filter_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial]) -> Dict[str, List[str]]:
+        """
+        Agent 1: Clinical Trials Administrator - Separates trials into eligible and uncertain categories.
         
         Args:
             patient: Patient domain object
@@ -81,142 +149,132 @@ class ClinicalTrialService:
             trials: List of clinical trials to filter
             
         Returns:
-            list[str]: List of external_ids that pass eligibility screening
+            Dict[str, List[str]]: Dictionary with 'eligible_trial_ids' and 'uncertain_trial_ids' lists
         """
-        # Prepare patient information for eligibility assessment
-        patient_info = f"""
-PATIENT ELIGIBILITY PROFILE:
-- Age: {parsed_transcript.age or 'Not specified'}
-- Sex: {parsed_transcript.sex or 'Not specified'}
-- Current Conditions: {', '.join(parsed_transcript.conditions) if parsed_transcript.conditions else 'None'}
-- Current Medications: {', '.join(parsed_transcript.medications) if parsed_transcript.medications else 'None'}
-- Past Diagnoses: {', '.join(parsed_transcript.past_diagnoses) if parsed_transcript.past_diagnoses else 'None'}
-- Past Surgeries: {', '.join(parsed_transcript.past_surgeries) if parsed_transcript.past_surgeries else 'None'}
-- Family History: {', '.join(parsed_transcript.family_history) if parsed_transcript.family_history else 'None'}
-"""
-
-        # Prepare trial eligibility information
+        # Prepare comprehensive patient information
+        patient_info = self._create_comprehensive_patient_info(patient, parsed_transcript)
+        
+        # Prepare trial eligibility information (focus only on eligibility criteria and title)
         trials_text = ""
         for i, trial in enumerate(trials, 1):
             trials_text += f"""
-TRIAL {i} - {trial.external_id}:
-- Title: {trial.brief_title}
-- Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}
-- Status: {trial.status}
-- Phases: {', '.join(trial.phases) if trial.phases else 'Not specified'}
-"""
+                TRIAL {i} - {trial.external_id}:
+                - Title: {trial.brief_title}
+                - Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}
+                """
 
         prompt = f"""
-You are a Senior Clinical Trials Administrator with 15+ years of experience in patient eligibility screening. Your expertise is in carefully analyzing eligibility criteria and determining patient inclusion/exclusion.
+            You are a Senior Clinical Trials Administrator with 15+ years of experience in patient eligibility screening. Your expertise is in carefully analyzing eligibility criteria and determining patient inclusion/exclusion.
 
-{patient_info}
+            {patient_info}
 
-CLINICAL TRIALS TO EVALUATE:
-{trials_text}
+            CLINICAL TRIALS TO EVALUATE:
+            {trials_text}
 
-YOUR TASK:
-Carefully evaluate each trial's eligibility criteria against the patient profile. Your ONLY job is to determine if the patient meets the basic eligibility requirements.
+            YOUR TASK:
+            Carefully evaluate each trial's eligibility criteria against the patient profile. Separate trials into two categories:
 
-INCLUSION RULES:
-- Include trials where the patient CLEARLY meets the eligibility criteria
-- Be conservative - if there's any doubt about eligibility, EXCLUDE the trial
-- Pay special attention to age ranges, sex requirements, medication exclusions, and condition requirements
+            FOCUS ON:
+            1. **Eligibility Criteria** (PRIMARY) - This is your main focus
+            2. **Trial Title** (SECONDARY) - Only if eligibility criteria are unclear
 
-EXCLUSION RULES:
-- Exclude trials where the patient's age is outside the specified range
-- Exclude trials where the patient's sex doesn't match requirements
-- Exclude trials where the patient takes medications that are explicitly excluded
-- Exclude trials where the patient doesn't have the required conditions
-- Exclude completed or terminated trials
+            ELIGIBLE TRIALS:
+            - Trials where the patient CLEARLY/LIKELY meets the eligibility criteria
+            - Patient does not meet any of the exclusion criteria
+            - Patient's age, sex, conditions, and medications all align with requirements
 
-RESPONSE FORMAT:
-Return ONLY a JSON object with the external_ids of trials that pass eligibility screening:
+            UNCERTAIN TRIALS:
+            - Trials where there is more doubt about patient eligibility, but not explicitly excluded by the eligibility criteria
+            - Eligibility criteria are unclear or ambiguous
+            - Patient's profile partially matches but some details are uncertain
 
-{{
-    "eligible_trial_ids": ["NCT12345678", "NCT87654321", ...]
-}}
+            EXCLUSION RULES (trials to completely exclude):
+            - Trials where the patient's age is clearly outside the specified range
+            - Trials where the patient's sex doesn't match requirements
+            - Trials where the patient takes medications that are explicitly excluded
+            - Trials where the patient doesn't have the required conditions
+            - Trials where the patient has conditions that are explicitly excluded
 
-If no trials are eligible, return: {{"eligible_trial_ids": []}}
+            RESPONSE FORMAT:
+            Return ONLY a JSON object with two lists:
 
-IMPORTANT: Be extremely thorough in your eligibility assessment. It's better to exclude a trial than to include an ineligible patient.
-"""
+            {{
+                "eligible_trial_ids": ["NCT12345678", "NCT87654321", ...],
+                "uncertain_trial_ids": ["NCT11111111", "NCT22222222", ...]
+            }}
+
+            If no trials are eligible or uncertain, return empty arrays: {{"eligible_trial_ids": [], "uncertain_trial_ids": []}}
+
+            IMPORTANT: Be thorough but fair. When in doubt about eligibility, put the trial in the uncertain category rather than excluding it entirely.
+            """
 
         try:
             response = self.llm_adapter.call_llm_json(prompt, temperature=0.1)  # Low temperature for consistency
             
-            if isinstance(response, dict) and "eligible_trial_ids" in response:
-                return response["eligible_trial_ids"]
+            if isinstance(response, dict) and "eligible_trial_ids" in response and "uncertain_trial_ids" in response:
+                return {
+                    "eligible_trial_ids": response["eligible_trial_ids"],
+                    "uncertain_trial_ids": response["uncertain_trial_ids"]
+                }
             else:
-                logger.warning("Eligibility agent response format unexpected, excluding all trials")
-                return []
+                logger.warning("Eligibility agent response format unexpected, returning empty lists")
+                return {"eligible_trial_ids": [], "uncertain_trial_ids": []}
                 
         except Exception as e:
             logger.error(f"Error in eligibility filter agent: {e}")
-            # Fallback: exclude all trials if agent fails
-            return []
+            # Fallback: return empty lists if agent fails
+            return {"eligible_trial_ids": [], "uncertain_trial_ids": []}
     
-    def _relevance_ranking_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial], eligible_trial_ids: list[str]) -> list[str]:
+    def _relevance_ranking_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial], trial_ids: list[str], category: str) -> list[str]:
         """
-        Agent 2: Clinical Research Coordinator - Ranks eligible trials by relevance and match quality.
+        Agent 2: Clinical Research Coordinator - Ranks trials by relevance and match quality.
         
         Args:
             patient: Patient domain object
             parsed_transcript: Parsed transcript domain object
             trials: List of all clinical trials
-            eligible_trial_ids: List of trial IDs that passed eligibility screening
+            trial_ids: List of trial IDs to rank (either eligible or uncertain)
+            category: Category of trials being ranked ("eligible" or "uncertain")
             
         Returns:
             list[str]: List of external_ids ranked by relevance (most relevant first)
         """
-        # Filter trials to only include eligible ones
-        eligible_trials = [t for t in trials if t.external_id in eligible_trial_ids]
+        # Filter trials to only include the specified ones
+        filtered_trials = [t for t in trials if t.external_id in trial_ids]
         
-        # Prepare patient information for relevance assessment
-        patient_info = f"""
-PATIENT CLINICAL PROFILE:
-- Age: {parsed_transcript.age or 'Not specified'}
-- Sex: {parsed_transcript.sex or 'Not specified'}
-- Current Conditions: {', '.join(parsed_transcript.conditions) if parsed_transcript.conditions else 'None'}
-- Current Medications: {', '.join(parsed_transcript.medications) if parsed_transcript.medications else 'None'}
-- Procedures: {', '.join(parsed_transcript.procedures) if parsed_transcript.procedures else 'None'}
-- Positive Symptoms: {', '.join(parsed_transcript.positive_symptoms) if parsed_transcript.positive_symptoms else 'None'}
-- Past Diagnoses: {', '.join(parsed_transcript.past_diagnoses) if parsed_transcript.past_diagnoses else 'None'}
-- Treatment Needs: Based on conditions and symptoms
-"""
-
-        # Prepare eligible trial information
+        # Prepare comprehensive patient information
+        patient_info = self._create_comprehensive_patient_info(patient, parsed_transcript)
+        
+        # Prepare trial information
         trials_text = ""
-        for i, trial in enumerate(eligible_trials, 1):
+        for i, trial in enumerate(filtered_trials, 1):
             trials_text += f"""
 TRIAL {i} - {trial.external_id}:
-- Title: {trial.brief_title}
 - Official Title: {trial.official_title}
 - Conditions: {', '.join(trial.conditions) if trial.conditions else 'Not specified'}
 - Brief Summary: {trial.brief_summary or 'No summary available'}
 - Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}
-- Status: {trial.status}
-- Phases: {', '.join(trial.phases) if trial.phases else 'Not specified'}
-- Sponsor: {trial.sponsor_name}
 """
 
+        category_context = "ELIGIBLE" if category == "eligible" else "UNCERTAIN"
+        
         prompt = f"""
 You are a Senior Clinical Research Coordinator with 10+ years of experience in patient-trial matching. Your expertise is in evaluating how well clinical trials match patient needs and clinical relevance.
 
 {patient_info}
 
-ELIGIBLE CLINICAL TRIALS TO RANK:
+{category_context} CLINICAL TRIALS TO RANK:
 {trials_text}
 
 YOUR TASK:
-Rank these eligible trials by how well they match the patient's clinical needs and relevance. Consider:
+Rank these {category.lower()} trials by how well they match the patient's clinical needs and relevance. Consider:
 
 RANKING FACTORS (in order of importance):
-1. **Condition Match**: How well the trial's conditions match the patient's conditions
-2. **Treatment Relevance**: How relevant the trial's treatment approach is to the patient's needs
-3. **Phase Appropriateness**: Whether the trial phase is appropriate for the patient's condition
-4. **Recruitment Status**: Active recruitment is preferred
-5. **Geographic Accessibility**: Consider patient location if specified
-6. **Burden vs. Benefit**: Balance trial requirements with potential benefits
+1. **Brief Summary Relevance**: How well the trial's brief summary (which describes the purpose of the study) matches the patient's clinical needs and context
+2. **Condition Match**: How well the trial's conditions match the patient's conditions
+3. **Treatment Relevance**: How relevant the trial's treatment approach is to the patient's needs
+4. **Geographic Accessibility**: Consider patient location if specified
+5. **Burden vs. Benefit**: Balance trial requirements with potential benefits
 
 RANKING RULES:
 - Most relevant trials first
@@ -243,13 +301,13 @@ IMPORTANT: Focus on clinical relevance and patient benefit. The patient should b
             if isinstance(response, dict) and "ranked_trial_ids" in response:
                 return response["ranked_trial_ids"]
             else:
-                logger.warning("Relevance ranking agent response format unexpected, returning eligible trials in original order")
-                return eligible_trial_ids
+                logger.warning(f"Relevance ranking agent response format unexpected, returning {category} trials in original order")
+                return trial_ids
                 
         except Exception as e:
             logger.error(f"Error in relevance ranking agent: {e}")
-            # Fallback: return eligible trials in original order
-            return eligible_trial_ids
+            # Fallback: return trials in original order
+            return trial_ids
     
     def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
         """

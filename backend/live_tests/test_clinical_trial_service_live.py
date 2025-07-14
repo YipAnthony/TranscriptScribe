@@ -84,58 +84,93 @@ def test_clinical_trial_service_live():
         
         # Test Agent 1: Eligibility Filter Agent
         print("Testing Agent 1: Eligibility Filter Agent...")
-        eligible_trial_ids = service._eligibility_filter_agent(test_patient, test_transcript, real_trials)
-        print(f"✅ Eligibility filter completed. Eligible trials: {eligible_trial_ids}")
-        print(f"   Filtered out {len(real_trials) - len(eligible_trial_ids)} ineligible trials")
+        eligibility_result = service._eligibility_filter_agent(test_patient, test_transcript, real_trials)
+        eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
+        uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
+        print(f"✅ Eligibility filter completed.")
+        print(f"   Eligible trials: {eligible_trial_ids}")
+        print(f"   Uncertain trials: {uncertain_trial_ids}")
+        print(f"   Excluded trials: {len(real_trials) - len(eligible_trial_ids) - len(uncertain_trial_ids)}")
         
-        # Test Agent 2: Relevance Ranking Agent
+        # Test Agent 2: Relevance Ranking Agent for eligible trials
+        ranked_eligible_trial_ids = []
         if eligible_trial_ids:
-            print("\nTesting Agent 2: Relevance Ranking Agent...")
-            ranked_trial_ids = service._relevance_ranking_agent(test_patient, test_transcript, real_trials, eligible_trial_ids)
-            print(f"✅ Relevance ranking completed. Ranked trials: {ranked_trial_ids}")
+            print("\nTesting Agent 2: Relevance Ranking Agent (Eligible Trials)...")
+            ranked_eligible_trial_ids = service._relevance_ranking_agent(test_patient, test_transcript, real_trials, eligible_trial_ids, "eligible")
+            print(f"✅ Relevance ranking (eligible) completed. Ranked trials: {ranked_eligible_trial_ids}")
         else:
-            print("⚠️  No eligible trials found, skipping relevance ranking")
-            ranked_trial_ids = []
+            print("⚠️  No eligible trials found, skipping relevance ranking for eligible trials")
+        
+        # Test Agent 2: Relevance Ranking Agent for uncertain trials
+        ranked_uncertain_trial_ids = []
+        if uncertain_trial_ids:
+            print("\nTesting Agent 2: Relevance Ranking Agent (Uncertain Trials)...")
+            ranked_uncertain_trial_ids = service._relevance_ranking_agent(test_patient, test_transcript, real_trials, uncertain_trial_ids, "uncertain")
+            print(f"✅ Relevance ranking (uncertain) completed. Ranked trials: {ranked_uncertain_trial_ids}")
+        else:
+            print("⚠️  No uncertain trials found, skipping relevance ranking for uncertain trials")
         
         # Add comprehensive assertions
         print("\nRunning assertions...")
         
-        # Assert that we got lists of trial IDs
+        # Assert that we got the expected structure
         assert isinstance(eligible_trial_ids, list), f"Expected list, got {type(eligible_trial_ids)}"
-        assert isinstance(ranked_trial_ids, list), f"Expected list, got {type(ranked_trial_ids)}"
-        print("✅ Both agents returned lists")
+        assert isinstance(uncertain_trial_ids, list), f"Expected list, got {type(uncertain_trial_ids)}"
+        assert isinstance(ranked_eligible_trial_ids, list), f"Expected list, got {type(ranked_eligible_trial_ids)}"
+        assert isinstance(ranked_uncertain_trial_ids, list), f"Expected list, got {type(ranked_uncertain_trial_ids)}"
+        print("✅ All agents returned lists")
         
-        # Assert that ranked trials are a subset of eligible trials
-        for trial_id in ranked_trial_ids:
-            assert trial_id in eligible_trial_ids, f"Ranked trial {trial_id} not in eligible trials"
-        print("✅ All ranked trials are from eligible trials")
+        # Assert that ranked trials are subsets of their respective categories
+        for trial_id in ranked_eligible_trial_ids:
+            assert trial_id in eligible_trial_ids, f"Ranked eligible trial {trial_id} not in eligible trials"
+        for trial_id in ranked_uncertain_trial_ids:
+            assert trial_id in uncertain_trial_ids, f"Ranked uncertain trial {trial_id} not in uncertain trials"
+        print("✅ All ranked trials are from their respective categories")
         
         # Assert that only valid trial IDs are returned
         valid_trial_ids = {trial.external_id for trial in real_trials}
         for trial_id in eligible_trial_ids:
             assert trial_id in valid_trial_ids, f"Invalid trial ID in eligible list: {trial_id}"
-        for trial_id in ranked_trial_ids:
-            assert trial_id in valid_trial_ids, f"Invalid trial ID in ranked list: {trial_id}"
+        for trial_id in uncertain_trial_ids:
+            assert trial_id in valid_trial_ids, f"Invalid trial ID in uncertain list: {trial_id}"
         print("✅ All returned trial IDs are valid")
         
         # Check for specific patterns in the results
-        if len(ranked_trial_ids) > 0:
+        total_ranked = len(ranked_eligible_trial_ids) + len(ranked_uncertain_trial_ids)
+        if total_ranked > 0:
             print("✅ Multi-agent system successfully filtered and ranked trials")
             
-            # Show all ranked trials with details
-            print(f"\nAll {len(ranked_trial_ids)} ranked trials:")
-            for i, trial_id in enumerate(ranked_trial_ids, 1):
-                trial = next((t for t in real_trials if t.external_id == trial_id), None)
-                if trial:
-                    print(f"\n{i}. {trial.brief_title}")
-                    print(f"   ID: {trial.external_id}")
-                    print(f"   Status: {trial.status}")
-                    print(f"   Phases: {', '.join(trial.phases) if trial.phases else 'Not specified'}")
-                    print(f"   Sponsor: {trial.sponsor_name}")
-                    print(f"   Conditions: {', '.join(trial.conditions) if trial.conditions else 'Not specified'}")
-                    print(f"   Brief Summary: {trial.brief_summary or 'No summary available'}")
-                    print(f"   Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}")
-                    print("-" * 80)
+            # Show eligible trials with details
+            if len(ranked_eligible_trial_ids) > 0:
+                print(f"\nAll {len(ranked_eligible_trial_ids)} ELIGIBLE trials (ranked by relevance):")
+                for i, trial_id in enumerate(ranked_eligible_trial_ids, 1):
+                    trial = next((t for t in real_trials if t.external_id == trial_id), None)
+                    if trial:
+                        print(f"\n{i}. {trial.brief_title}")
+                        print(f"   ID: {trial.external_id}")
+                        print(f"   Status: {trial.status}")
+                        print(f"   Phases: {', '.join(trial.phases) if trial.phases else 'Not specified'}")
+                        print(f"   Sponsor: {trial.sponsor_name}")
+                        print(f"   Conditions: {', '.join(trial.conditions) if trial.conditions else 'Not specified'}")
+                        print(f"   Brief Summary: {trial.brief_summary or 'No summary available'}")
+                        print(f"   Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}")
+                        print("-" * 80)
+            
+            # Show uncertain trials with details
+            if len(ranked_uncertain_trial_ids) > 0:
+                print(f"\nAll {len(ranked_uncertain_trial_ids)} UNCERTAIN trials (ranked by relevance):")
+                for i, trial_id in enumerate(ranked_uncertain_trial_ids, 1):
+                    trial = next((t for t in real_trials if t.external_id == trial_id), None)
+                    if trial:
+                        print(f"\n{i}. {trial.brief_title}")
+                        print(f"   ID: {trial.external_id}")
+                        print(f"   Status: {trial.status}")
+                        print(f"   Phases: {', '.join(trial.phases) if trial.phases else 'Not specified'}")
+                        print(f"   Sponsor: {trial.sponsor_name}")
+                        print(f"   Conditions: {', '.join(trial.conditions) if trial.conditions else 'Not specified'}")
+                        print(f"   Brief Summary: {trial.brief_summary or 'No summary available'}")
+                        print(f"   Eligibility Criteria: {trial.eligibility_criteria or 'No eligibility criteria available'}")
+                        print("-" * 80)
         else:
             print("⚠️  Multi-agent system filtered out all trials (this may be correct if patient is ineligible for all)")
         

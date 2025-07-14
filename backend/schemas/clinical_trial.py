@@ -82,7 +82,10 @@ class ClinicalTrialDetailedResponse(BaseModel):
 
 class GetClinicalTrialRecommendationsResponse(BaseModel):
     """API response for clinical trial recommendations"""
-    trials: List[ClinicalTrialPreviewResponse]
+    eligible_trials: List[ClinicalTrialPreviewResponse]
+    uncertain_trials: List[ClinicalTrialPreviewResponse]
+    total_eligible_count: int
+    total_uncertain_count: int
     total_count: int
     search_criteria: Dict[str, Any]
 

@@ -19,29 +19,47 @@ class ClinicalTrialHandler:
         """
         try:
             # Find recommended trials using business logic
-            trials = self.trial_service.find_recommended_trials(
+            trial_results = self.trial_service.find_recommended_trials(
                 patient_id=request.patient_id,
                 transcript_id=request.transcript_id
             )
             
-            # Convert domain models to preview responses
-            preview_responses = []
-            for trial in trials:
+            # Convert eligible trials to preview responses
+            eligible_preview_responses = []
+            for trial in trial_results["eligible_trials"]:
                 preview_data = trial.get_preview_data()
                 preview_response = ClinicalTrialPreviewResponse(**preview_data)
-                preview_responses.append(preview_response)
+                eligible_preview_responses.append(preview_response)
+            
+            # Convert uncertain trials to preview responses
+            uncertain_preview_responses = []
+            for trial in trial_results["uncertain_trials"]:
+                preview_data = trial.get_preview_data()
+                preview_response = ClinicalTrialPreviewResponse(**preview_data)
+                uncertain_preview_responses.append(preview_response)
+            
+            # Calculate counts
+            total_eligible_count = len(eligible_preview_responses)
+            total_uncertain_count = len(uncertain_preview_responses)
+            total_count = total_eligible_count + total_uncertain_count
             
             # Transform to API response
             return GetClinicalTrialRecommendationsResponse(
-                trials=preview_responses,
-                total_count=len(preview_responses),
+                eligible_trials=eligible_preview_responses,
+                uncertain_trials=uncertain_preview_responses,
+                total_eligible_count=total_eligible_count,
+                total_uncertain_count=total_uncertain_count,
+                total_count=total_count,
                 search_criteria=request.search_criteria or {}
             )
             
         except (PatientNotFoundError, TranscriptNotFoundError) as e:
             # Return empty response for not found errors
             return GetClinicalTrialRecommendationsResponse(
-                trials=[],
+                eligible_trials=[],
+                uncertain_trials=[],
+                total_eligible_count=0,
+                total_uncertain_count=0,
                 total_count=0,
                 search_criteria=request.search_criteria or {}
             )

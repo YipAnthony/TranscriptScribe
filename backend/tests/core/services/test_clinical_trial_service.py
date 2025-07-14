@@ -108,10 +108,11 @@ class TestClinicalTrialService:
                                            mock_llm_adapter: Mock, sample_patient: Patient, 
                                            sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
         """Test successful find_recommended_trials with multi-agent approach"""
-        # Setup mocks for eligibility filter agent
+        # Setup mocks for eligibility filter agent and relevance ranking agents
         mock_llm_adapter.call_llm_json.side_effect = [
-            {"eligible_trial_ids": ["NCT12345678", "NCT87654321"]},  # Agent 1 response
-            {"ranked_trial_ids": ["NCT12345678", "NCT87654321"]}     # Agent 2 response
+            {"eligible_trial_ids": ["NCT12345678"], "uncertain_trial_ids": ["NCT87654321"]},  # Agent 1 response
+            {"ranked_trial_ids": ["NCT12345678"]},  # Agent 2 response for eligible trials
+            {"ranked_trial_ids": ["NCT87654321"]}   # Agent 2 response for uncertain trials
         ]
         
         mock_db_adapter.get_patient.return_value = sample_patient
@@ -121,16 +122,24 @@ class TestClinicalTrialService:
         # Call the method
         result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
-        # Verify results
-        assert len(result) == 2
-        assert result[0].external_id == "NCT12345678"
-        assert result[1].external_id == "NCT87654321"
+        # Verify results structure
+        assert isinstance(result, dict)
+        assert "eligible_trials" in result
+        assert "uncertain_trials" in result
+        
+        # Verify eligible trials
+        assert len(result["eligible_trials"]) == 1
+        assert result["eligible_trials"][0].external_id == "NCT12345678"
+        
+        # Verify uncertain trials
+        assert len(result["uncertain_trials"]) == 1
+        assert result["uncertain_trials"][0].external_id == "NCT87654321"
         
         # Verify mocks were called correctly
         mock_db_adapter.get_patient.assert_called_once_with("patient-123")
         mock_db_adapter.get_transcript.assert_called_once_with("transcript-456")
         mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_called_once_with(sample_patient, sample_transcript)
-        assert mock_llm_adapter.call_llm_json.call_count == 2  # Called twice for both agents
+        assert mock_llm_adapter.call_llm_json.call_count == 3  # Called 3 times: Agent 1 + Agent 2 (eligible) + Agent 2 (uncertain)
     
     def test_find_recommended_trials_no_initial_trials(self, clinical_trial_service: ClinicalTrialService,
                                                      mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
@@ -145,7 +154,7 @@ class TestClinicalTrialService:
         result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results
-        assert result == []
+        assert result == {"eligible_trials": [], "uncertain_trials": []}
         
         # Verify LLM was not called since no trials were found
         mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_called_once()
@@ -185,8 +194,8 @@ class TestClinicalTrialService:
         # Call the method
         result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
-        # Verify results - should return empty list as conservative fallback
-        assert len(result) == 0
+        # Verify results - should return empty lists as conservative fallback
+        assert result == {"eligible_trials": [], "uncertain_trials": []}
     
     def test_find_recommended_trials_llm_unexpected_response(self, clinical_trial_service: ClinicalTrialService,
                                                            mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
@@ -202,8 +211,8 @@ class TestClinicalTrialService:
         # Call the method
         result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
-        # Verify results - should return empty list as conservative fallback
-        assert len(result) == 0
+        # Verify results - should return empty lists as conservative fallback
+        assert result == {"eligible_trials": [], "uncertain_trials": []}
     
     def test_find_recommended_trials_llm_empty_response(self, clinical_trial_service: ClinicalTrialService,
                                                       mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
@@ -214,13 +223,13 @@ class TestClinicalTrialService:
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
         mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = sample_trials
-        mock_llm_adapter.call_llm_json.return_value = {"relevant_trial_ids": []}
+        mock_llm_adapter.call_llm_json.return_value = {"eligible_trial_ids": [], "uncertain_trial_ids": []}
         
         # Call the method
         result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
-        # Verify results - should return empty list
-        assert result == []
+        # Verify results - should return empty lists
+        assert result == {"eligible_trials": [], "uncertain_trials": []}
     
     def test_get_clinical_trial(self, clinical_trial_service: ClinicalTrialService,
                                mock_clinical_trials_adapter: Mock, sample_trials: List[ClinicalTrial]) -> None:
@@ -241,14 +250,18 @@ class TestClinicalTrialService:
         """Test the eligibility filter agent"""
         # Setup mock
         mock_llm_adapter.call_llm_json.return_value = {
-            "eligible_trial_ids": ["NCT12345678", "NCT87654321"]
+            "eligible_trial_ids": ["NCT12345678"],
+            "uncertain_trial_ids": ["NCT87654321"]
         }
         
         # Call the method
         result = clinical_trial_service._eligibility_filter_agent(sample_patient, sample_transcript, sample_trials)
         
         # Verify results
-        assert result == ["NCT12345678", "NCT87654321"]
+        assert result == {
+            "eligible_trial_ids": ["NCT12345678"],
+            "uncertain_trial_ids": ["NCT87654321"]
+        }
         mock_llm_adapter.call_llm_json.assert_called_once()
     
     def test_relevance_ranking_agent(self, clinical_trial_service: ClinicalTrialService,
@@ -263,8 +276,34 @@ class TestClinicalTrialService:
         eligible_trial_ids = ["NCT12345678", "NCT87654321"]
         
         # Call the method
-        result = clinical_trial_service._relevance_ranking_agent(sample_patient, sample_transcript, sample_trials, eligible_trial_ids)
+        result = clinical_trial_service._relevance_ranking_agent(sample_patient, sample_transcript, sample_trials, eligible_trial_ids, "eligible")
         
         # Verify results
         assert result == ["NCT87654321", "NCT12345678"]
-        mock_llm_adapter.call_llm_json.assert_called_once() 
+        mock_llm_adapter.call_llm_json.assert_called_once()
+    
+    def test_create_comprehensive_patient_info(self, clinical_trial_service: ClinicalTrialService,
+                                             sample_patient: Patient, sample_transcript: ParsedTranscript) -> None:
+        """Test the comprehensive patient info creation helper function"""
+        # Call the helper function
+        patient_info = clinical_trial_service._create_comprehensive_patient_info(sample_patient, sample_transcript)
+        
+        # Verify it contains all expected sections
+        assert "PATIENT PROFILE:" in patient_info
+        assert "MEDICAL INFORMATION:" in patient_info
+        assert "LAB & IMAGING RESULTS:" in patient_info
+        assert "LIFESTYLE FACTORS:" in patient_info
+        assert "EXTRACTION NOTES:" in patient_info
+        
+        # Verify patient fields are prioritized
+        assert "John Doe" in patient_info  # Patient name
+        assert "New York" in patient_info  # Patient location
+        assert "MALE" in patient_info      # Patient sex (prioritized over transcript)
+        
+        # Verify transcript fields are included
+        assert "Diabetes" in patient_info
+        assert "Hypertension" in patient_info
+        assert "Metformin" in patient_info
+        assert "Lisinopril" in patient_info
+        assert "Fatigue" in patient_info
+        assert "Type 2 Diabetes" in patient_info 

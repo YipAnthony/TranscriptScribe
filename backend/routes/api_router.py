@@ -6,6 +6,7 @@ from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
 from schemas.clinical_trial import (
     GetClinicalTrialRecommendationsRequest,
     GetClinicalTrialRecommendationsResponse,
+    GetClinicalTrialRequest,
     GetClinicalTrialResponse,
 )
 
@@ -45,12 +46,8 @@ async def get_clinical_trial_recommendations(
     clinical_trial_handler = Depends(get_clinical_trial_handler)
 ) -> GetClinicalTrialRecommendationsResponse:
     """Get clinical trial recommendations"""
-    # TODO: Implement clinical trial recommendations with actual handler
-    logger.info("Clinical trial recommendations endpoint called")
-    raise HTTPException(
-        status_code=501, 
-        detail="Clinical trial recommendations not yet implemented"
-    )
+    logger.info(f"Getting clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
+    return clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
 
 @api_router.get("/clinical-trials/{trial_id}", response_model=GetClinicalTrialResponse)
 async def get_clinical_trial(
@@ -58,11 +55,8 @@ async def get_clinical_trial(
     clinical_trial_handler = Depends(get_clinical_trial_handler)
 ) -> GetClinicalTrialResponse:
     """Get a specific clinical trial by ID"""
-    # TODO: Implement clinical trial retrieval with actual handler
-    logger.info(f"Clinical trial retrieval endpoint called for ID: {trial_id}")
-    raise HTTPException(
-        status_code=501, 
-        detail="Clinical trial retrieval not yet implemented"
-    )
+    logger.info(f"Getting clinical trial details for ID: {trial_id}")
+    request = GetClinicalTrialRequest(trial_id=trial_id)
+    return clinical_trial_handler.handle_get_clinical_trial(request)
 
 # Note: Exception handling is done at the app level in main.py 
