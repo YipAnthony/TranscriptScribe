@@ -1,4 +1,14 @@
 
+## API Documentation
+
+📚 **Live API Documentation**: [https://transcriptscribe-production.up.railway.app/docs](https://transcriptscribe-production.up.railway.app/docs)
+
+The API documentation is automatically generated using FastAPI's built-in Swagger UI. You can:
+- View all available endpoints
+- Test API calls directly from the browser
+- See request/response schemas
+- Understand authentication requirements
+
 ## Backend Directory Overview
 
 ### Core: business logic
