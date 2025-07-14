@@ -129,7 +129,6 @@ def test_raw_transcript_processing_and_storage(transcript_service: TranscriptSer
         logger.info("Step 0: Creating test patient...")
         test_patient_data = {
             "id": test_patient_id,
-            "external_id": f"TEST_PATIENT_{test_patient_id[:8]}",
             "first_name": "Test",
             "last_name": "Patient",
             "date_of_birth": "1978-01-01",
@@ -298,7 +297,6 @@ def test_transcript_processing_with_json_input(transcript_service: TranscriptSer
         # Create a test patient first
         test_patient_data = {
             "id": test_patient_id,
-            "external_id": f"TEST_PATIENT_{test_patient_id[:8]}",
             "first_name": "Test",
             "last_name": "Patient",
             "date_of_birth": "1980-01-01",

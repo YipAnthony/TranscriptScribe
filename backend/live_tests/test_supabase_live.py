@@ -108,7 +108,6 @@ def test_create_and_get_transcript(adapter: SupabaseAdapter) -> None:
     # Create a test patient first
     test_patient_data = {
         "id": test_patient_id,
-        "external_id": f"TEST_PATIENT_{test_patient_id[:8]}",
         "first_name": "Test",
         "last_name": "Patient",
         "date_of_birth": "1978-01-01",

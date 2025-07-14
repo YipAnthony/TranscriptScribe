@@ -193,7 +193,6 @@ class SupabaseAdapter(DatabasePort):
         
         return Patient(
             id=patient_data["id"],
-            external_id=patient_data["external_id"],
             first_name=patient_data["first_name"],
             last_name=patient_data["last_name"],
             date_of_birth=date_of_birth,

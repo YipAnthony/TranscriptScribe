@@ -41,7 +41,6 @@ class TestClinicalTrialService:
         """Sample patient for testing"""
         return Patient(
             id="patient-123",
-            external_id="EXT-123",
             first_name="John",
             last_name="Doe",
             date_of_birth=date(1980, 1, 1),

@@ -5,7 +5,6 @@ from domain.address import Address
 class Patient:
     def __init__(self,
                  id: Optional[str] = None,
-                 external_id: str = "",
                  first_name: str = "",
                  last_name: str = "",
                  date_of_birth: Optional[date] = None,
@@ -18,7 +17,6 @@ class Patient:
                  zip_code: Optional[str] = None,
                  country: str = "USA"):
         self.id = id
-        self.external_id = external_id
         self.first_name = first_name
         self.last_name = last_name
         self.date_of_birth = date_of_birth
@@ -32,7 +30,7 @@ class Patient:
         self.country = country
     
     def __str__(self) -> str:
-        return f"Patient(id={self.id}, name={self.first_name} {self.last_name}, external_id={self.external_id})"
+        return f"Patient(id={self.id}, name={self.first_name} {self.last_name})"
     
     def __repr__(self) -> str:
         return self.__str__() 
