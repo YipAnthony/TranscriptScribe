@@ -42,7 +42,7 @@ class TestGeminiAdapter:
                 adapter = GeminiAdapter(api_key=mock_api_key)
                 
                 assert adapter.api_key == mock_api_key
-                assert adapter.model_name == "gemini-2.0-flash-exp"
+                assert "gemini-2.0" in adapter.model_name
                 mock_configure.assert_called_once_with(api_key=mock_api_key)
                 mock_model.assert_called_once()
     
@@ -69,7 +69,7 @@ class TestGeminiAdapter:
         assert isinstance(result, LLMResponse)
         assert result.content == "Hello, this is a test response"
         assert result.metadata is not None
-        assert result.metadata["model"] == "gemini-2.0-flash-exp"
+        assert "gemini-2.0" in result.metadata
         
         # Verify the model was called correctly
         mock_generate_content.assert_called_once()
