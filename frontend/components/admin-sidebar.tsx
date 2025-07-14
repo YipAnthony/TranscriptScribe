@@ -4,10 +4,6 @@ import * as React from "react"
 import {
   IconUsers,
   IconCalendar,
-  IconFileDescription,
-  IconUpload,
-  IconSearch,
-  IconSettings,
   IconLogout,
   IconHome,
 } from "@tabler/icons-react"
@@ -39,26 +35,6 @@ const adminNavItems = [
     url: "/admin/appointments",
     icon: IconCalendar,
   },
-  {
-    title: "Trial Recommendations",
-    url: "/admin/trials",
-    icon: IconFileDescription,
-  },
-  {
-    title: "Upload Transcript",
-    url: "/admin/upload",
-    icon: IconUpload,
-  },
-  {
-    title: "Search",
-    url: "/admin/search",
-    icon: IconSearch,
-  },
-  {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: IconSettings,
-  },
 ]
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -79,7 +55,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/admin">
+              <a href="/">
                 <IconHome className="!size-5" />
                 <span className="text-base font-semibold">TranscriptScribe Admin</span>
               </a>

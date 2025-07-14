@@ -10,10 +10,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { IconEye, IconLoader2, IconCalendar } from "@tabler/icons-react"
+import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask } from "@tabler/icons-react"
 import { createClient } from "@/lib/supabase/client"
 import { ViewAppointmentDialog } from "@/components/view-appointment-dialog"
+import { ViewRecommendedTrialsDialog } from "@/components/view-recommended-trials-dialog"
 
 interface Appointment {
   id: string
@@ -23,6 +32,7 @@ interface Appointment {
   status: string
   created_at: string
   updated_at: string
+  clinical_trials_count?: number
 }
 
 interface AppointmentsTableProps {
@@ -35,6 +45,8 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
   const [error, setError] = useState<string | null>(null)
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [selectedTrialsAppointmentId, setSelectedTrialsAppointmentId] = useState<string | null>(null)
+  const [viewTrialsDialogOpen, setViewTrialsDialogOpen] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -46,7 +58,7 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
       setLoading(true)
       setError(null)
 
-      // Fetch transcripts (appointments) with patient names
+      // Fetch transcripts (appointments) with patient names and clinical trial counts
       const { data: transcriptsData, error: transcriptsError } = await supabase
         .from('transcripts')
         .select(`
@@ -59,13 +71,42 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
         throw transcriptsError
       }
 
-      // Transform the data to include patient names
-      const transformedAppointments = transcriptsData?.map(transcript => ({
-        ...transcript,
-        patient_name: transcript.patients 
-          ? `${transcript.patients.first_name} ${transcript.patients.last_name}`
-          : 'Unknown Patient'
-      })) || []
+      // Fetch transcript recommendations separately
+      const { data: recommendationsData, error: recommendationsError } = await supabase
+        .from('transcript_recommendations')
+        .select('*')
+
+      if (recommendationsError) {
+        console.warn('Error fetching recommendations:', recommendationsError)
+      }
+
+      // Debug logging
+      console.log('Transcripts data:', transcriptsData)
+      console.log('Recommendations data:', recommendationsData)
+
+      // Transform the data to include patient names and clinical trial counts
+      const transformedAppointments = transcriptsData?.map(transcript => {
+        // Find recommendations for this transcript
+        const recommendations = recommendationsData?.find(rec => rec.transcript_id === transcript.id)
+        const eligibleCount = recommendations?.eligible_trials?.length || 0
+        const uncertainCount = recommendations?.uncertain_trials?.length || 0
+        const totalTrials = eligibleCount + uncertainCount
+
+        console.log(`Transcript ${transcript.id}:`, {
+          recommendations: recommendations,
+          eligibleCount,
+          uncertainCount,
+          totalTrials
+        })
+
+        return {
+          ...transcript,
+          patient_name: transcript.patients 
+            ? `${transcript.patients.first_name} ${transcript.patients.last_name}`
+            : 'Unknown Patient',
+          clinical_trials_count: totalTrials
+        }
+      }) || []
 
       setAppointments(transformedAppointments)
     } catch (err) {
@@ -101,6 +142,24 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
   const handleViewAppointment = (appointmentId: string) => {
     setSelectedAppointmentId(appointmentId)
     setViewDialogOpen(true)
+  }
+
+  const handleViewRecommendedTrials = (appointmentId: string) => {
+    setSelectedTrialsAppointmentId(appointmentId)
+    setViewTrialsDialogOpen(true)
+  }
+
+  const getClinicalTrialsBadge = (count: number) => {
+    if (count === 0) {
+      return <Badge variant="outline" className="text-gray-500">No Trials Recommended</Badge>
+    }
+    if (count <= 3) {
+      return <Badge className="bg-green-100 text-green-800">{count} Trial{count !== 1 ? 's' : ''}</Badge>
+    }
+    if (count <= 10) {
+      return <Badge className="bg-yellow-100 text-yellow-800">{count} Potential Trials</Badge>
+    }
+    return <Badge className="bg-blue-100 text-blue-800">{count} Potential Trials</Badge>
   }
 
   if (loading) {
@@ -146,6 +205,7 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
               <TableHead>Patient</TableHead>
               <TableHead>Appointment Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Clinical Trials</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -158,16 +218,32 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
                 </TableCell>
                 <TableCell>{formatDateTime(appointment.recorded_at)}</TableCell>
                 <TableCell>{getStatusBadge(appointment.status)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <IconFlask className="h-4 w-4 text-gray-500" />
+                    {getClinicalTrialsBadge(appointment.clinical_trials_count || 0)}
+                  </div>
+                </TableCell>
                 <TableCell>{formatDate(appointment.created_at)}</TableCell>
                 <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleViewAppointment(appointment.id)}
-                  >
-                    <IconEye className="mr-2 h-4 w-4" />
-                    View Transcript Details
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <IconDots className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => handleViewAppointment(appointment.id)}>
+                        <IconEye className="mr-2 h-4 w-4" />
+                        View Transcript Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleViewRecommendedTrials(appointment.id)}>
+                        <IconFlask className="mr-2 h-4 w-4" />
+                        View Recommended Trials
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
@@ -179,6 +255,12 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
         appointmentId={selectedAppointmentId}
         open={viewDialogOpen}
         onOpenChange={setViewDialogOpen}
+      />
+
+      <ViewRecommendedTrialsDialog
+        appointmentId={selectedTrialsAppointmentId}
+        open={viewTrialsDialogOpen}
+        onOpenChange={setViewTrialsDialogOpen}
       />
     </>
   )
