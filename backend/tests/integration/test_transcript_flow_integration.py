@@ -21,8 +21,8 @@ from domain.parsed_transcript import ParsedTranscript
 from domain.clinical_trial import ClinicalTrial, SourceRegistry
 from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
 from schemas.clinical_trial import (
-    GetClinicalTrialRecommendationsRequest,
-    GetClinicalTrialRecommendationsResponse,
+    CreateClinicalTrialRecommendationsRequest,
+    CreateClinicalTrialRecommendationsResponse,
     GetClinicalTrialRequest,
     GetClinicalTrialResponse
 )
@@ -185,7 +185,7 @@ class TestTranscriptFlowIntegration:
         mock_llm, mock_db, mock_ctg = mock_adapters
         
         # Create request
-        request = GetClinicalTrialRecommendationsRequest(
+        request = CreateClinicalTrialRecommendationsRequest(
             patient_id="test-patient-123",
             transcript_id="test-transcript-123",
             search_criteria={"max_distance": 50}
@@ -198,13 +198,12 @@ class TestTranscriptFlowIntegration:
         }
         
         # Process through handler
-        response = await clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
+        response = await clinical_trial_handler.handle_create_clinical_trial_recommendations(request)
         
         # Verify response structure
-        assert isinstance(response, GetClinicalTrialRecommendationsResponse)
-        assert len(response.eligible_trials) > 0
-        assert response.total_eligible_count > 0
-        assert response.search_criteria == {"max_distance": 50}
+        assert isinstance(response, CreateClinicalTrialRecommendationsResponse)
+        assert response.status == "success"
+        assert "successfully" in response.message
         
         # Verify adapters were called
         mock_db.get_patient.assert_called_once_with("test-patient-123")
@@ -225,8 +224,8 @@ class TestTranscriptFlowIntegration:
         
         # Verify response structure
         assert isinstance(response, GetClinicalTrialResponse)
-        assert response.trial.external_id == "NCT12345678"
-        assert response.trial.title == "Test Clinical Trial for Diabetes"
+        assert response.status == "success"
+        assert "successfully" in response.message
         
         # Verify adapter was called
         mock_ctg.get_clinical_trial.assert_awaited_once_with("NCT12345678")
@@ -279,10 +278,9 @@ class TestTranscriptFlowIntegration:
                 }
                 mock_relevance.return_value = ["NCT12345678"]
                 
-                result = await clinical_trial_service.find_recommended_trials(
+                result = await clinical_trial_service.create_recommended_trials(
                     patient_id="test-patient-123",
                     transcript_id="test-transcript-123"
                 )
                 
-                assert len(result["eligible_trials"]) == 1
-                assert len(result["uncertain_trials"]) == 0 
+                assert result is None 

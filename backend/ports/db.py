@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List, Dict
 from domain.parsed_transcript import ParsedTranscript
 from domain.patient import Patient
+from domain.clinical_trial import ClinicalTrial
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
 
 class DatabasePort(ABC):
@@ -83,5 +84,73 @@ class DatabasePort(ABC):
         
         Args:
             transcript_id: Unique identifier for the transcript to delete
+        """
+        pass
+    
+    # Clinical Trial methods
+    @abstractmethod
+    def upsert_clinical_trial(self, clinical_trial: ClinicalTrial) -> str:
+        """
+        Insert or update a clinical trial record
+        
+        Args:
+            clinical_trial: Clinical trial domain model
+            
+        Returns:
+            str: The clinical trial's ID
+        """
+        pass
+    
+    @abstractmethod
+    def get_clinical_trial(self, external_id: str) -> Optional[ClinicalTrial]:
+        """
+        Get clinical trial by external ID (e.g., NCT ID)
+        
+        Args:
+            external_id: External identifier for the clinical trial
+            
+        Returns:
+            ClinicalTrial: Retrieved clinical trial object or None if not found
+        """
+        pass
+    
+    # Transcript Recommendations methods
+    @abstractmethod
+    def create_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> str:
+        """
+        Create transcript recommendations record
+        
+        Args:
+            transcript_id: ID of the transcript
+            eligible_trial_ids: List of eligible trial external IDs
+            uncertain_trial_ids: List of uncertain trial external IDs
+            
+        Returns:
+            str: The created transcript recommendations ID
+        """
+        pass
+    
+    @abstractmethod
+    def update_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> None:
+        """
+        Update transcript recommendations record
+        
+        Args:
+            transcript_id: ID of the transcript
+            eligible_trial_ids: List of eligible trial external IDs
+            uncertain_trial_ids: List of uncertain trial external IDs
+        """
+        pass
+    
+    @abstractmethod
+    def get_transcript_recommendations(self, transcript_id: str) -> Optional[Dict[str, List[str]]]:
+        """
+        Get transcript recommendations record
+        
+        Args:
+            transcript_id: ID of the transcript
+            
+        Returns:
+            Optional[Dict[str, List[str]]]: Dictionary with 'eligible_trial_ids' and 'uncertain_trial_ids' lists, or None if not found
         """
         pass 

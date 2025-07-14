@@ -5,7 +5,7 @@ from ports.db import DatabasePort
 from ports.clinical_trials import ClinicalTrialsPort
 from ports.llm import LLMPort
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
-from typing import Dict, List
+from typing import Dict, List, Optional
 import json
 import logging
 
@@ -17,17 +17,15 @@ class ClinicalTrialService:
         self.clinical_trials_adapter = clinical_trials_adapter
         self.llm_adapter = llm_adapter
     
-    async def find_recommended_trials(self, patient_id: str, transcript_id: str) -> Dict[str, List[ClinicalTrial]]:
+    async def create_recommended_trials(self, patient_id: str, transcript_id: str) -> None:
         """
-        Find recommended clinical trials based on patient profile and appointment transcript.
+        Create recommended clinical trials based on patient profile and appointment transcript.
         Uses a multi-agent approach with specialized agents for eligibility filtering and relevance ranking.
+        Stores trials using the DB adapter.
         
         Args:
             patient_id: ID of the patient
             transcript_id: ID of the transcript
-            
-        Returns:
-            Dict[str, List[ClinicalTrial]]: Dictionary with 'eligible_trials' and 'uncertain_trials' lists
             
         Raises:
             PatientNotFoundError: If patient is not found
@@ -44,8 +42,17 @@ class ClinicalTrialService:
         logger.info(f"Found {len(initial_trials)} initial clinical trials")
         
         if not initial_trials:
-            logger.info("No clinical trials found, returning empty lists")
-            return {"eligible_trials": [], "uncertain_trials": []}
+            logger.info("No clinical trials found, storing empty recommendations")
+            # Store empty recommendations
+            try:
+                existing_recommendations = self.db_adapter.get_transcript_recommendations(transcript_id)
+                if existing_recommendations:
+                    self.db_adapter.update_transcript_recommendations(transcript_id, [], [])
+                else:
+                    self.db_adapter.create_transcript_recommendations(transcript_id, [], [])
+            except Exception as e:
+                logger.error(f"Failed to store empty transcript recommendations: {e}")
+            return
         
         # 3. Agent 1: Eligibility Filter Agent - Separate eligible and uncertain trials
         logger.info("Agent 1: Filtering trials by eligibility criteria")
@@ -68,27 +75,27 @@ class ClinicalTrialService:
             ranked_uncertain_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
             logger.info(f"Relevance ranking (uncertain): {len(ranked_uncertain_trial_ids)} trials ranked")
         
-        # 6. Restructure response to include ranked trials in order
-        logger.info(f"Returning {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trials")
+        # 6. Store all trials in Supabase
+        logger.info("Storing clinical trials in Supabase")
+        for trial in initial_trials:
+            try:
+                self.db_adapter.upsert_clinical_trial(trial)
+            except Exception as e:
+                logger.error(f"Failed to store trial {trial.external_id}: {e}")
         
-        eligible_trials = []
-        for trial_id in ranked_eligible_trial_ids:
-            for trial in initial_trials:
-                if trial.external_id == trial_id:
-                    eligible_trials.append(trial)
-                    break
+        # 7. Store transcript recommendations
+        logger.info("Storing transcript recommendations")
+        try:
+            # Check if transcript recommendations already exist
+            existing_recommendations = self.db_adapter.get_transcript_recommendations(transcript_id)
+            if existing_recommendations:
+                self.db_adapter.update_transcript_recommendations(transcript_id, ranked_eligible_trial_ids, ranked_uncertain_trial_ids)
+            else:
+                self.db_adapter.create_transcript_recommendations(transcript_id, ranked_eligible_trial_ids, ranked_uncertain_trial_ids)
+        except Exception as e:
+            logger.error(f"Failed to store transcript recommendations: {e}")
         
-        uncertain_trials = []
-        for trial_id in ranked_uncertain_trial_ids:
-            for trial in initial_trials:
-                if trial.external_id == trial_id:
-                    uncertain_trials.append(trial)
-                    break
-        
-        return {
-            "eligible_trials": eligible_trials,
-            "uncertain_trials": uncertain_trials
-        }
+        logger.info(f"Successfully created recommendations: {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trial IDs")
     
     def _create_comprehensive_patient_info(self, patient: Patient, parsed_transcript: ParsedTranscript) -> str:
         """

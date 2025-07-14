@@ -1,6 +1,6 @@
 import os
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
 from supabase import create_client, Client
@@ -8,6 +8,7 @@ from ports.db import DatabasePort
 from domain.parsed_transcript import ParsedTranscript
 from domain.address import Address
 from domain.patient import Patient
+from domain.clinical_trial import ClinicalTrial, Location
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
 
 logger = logging.getLogger(__name__)
@@ -229,4 +230,182 @@ class SupabaseAdapter(DatabasePort):
             positive_lifestyle_factors=row.get("positive_lifestyle_factors", []),
             negative_lifestyle_factors=row.get("negative_lifestyle_factors", []),
             extraction_notes=row.get("extraction_notes", [])
+        )
+    
+    # Clinical Trial methods
+    def upsert_clinical_trial(self, clinical_trial: ClinicalTrial) -> str:
+        """Insert or update a clinical trial record"""
+        try:
+            # Convert locations to text array
+            locations = []
+            if clinical_trial.locations:
+                for location in clinical_trial.locations:
+                    location_str = f"{location.city}, {location.state}"
+                    if location.country and location.country != "United States":
+                        location_str += f", {location.country}"
+                    locations.append(location_str)
+            
+            clinical_trial_data = {
+                "external_id": clinical_trial.external_id,
+                "brief_title": clinical_trial.brief_title,
+                "status": clinical_trial.status,
+                "conditions": clinical_trial.conditions,
+                "brief_summary": clinical_trial.brief_summary,
+                "locations": locations
+            }
+            
+            # Use upsert to insert or update
+            result = self.client.table("clinical_trials").upsert(
+                clinical_trial_data, 
+                on_conflict="external_id"
+            ).execute()
+            
+            if result.data:
+                trial_id = result.data[0]["id"]
+                logger.info(f"Upserted clinical trial with ID: {trial_id}")
+                return trial_id
+            else:
+                raise Exception("Failed to upsert clinical trial - no data returned")
+        except Exception as e:
+            logger.error(f"Error upserting clinical trial: {e}")
+            raise
+    
+    def get_clinical_trial(self, external_id: str) -> Optional[ClinicalTrial]:
+        """Get clinical trial by external ID"""
+        try:
+            result = self.client.table("clinical_trials").select("*").eq("external_id", external_id).execute()
+            if result.data:
+                trial_data = result.data[0]
+                return self._row_to_clinical_trial(trial_data)
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"Error getting clinical trial {external_id}: {e}")
+            raise
+    
+    # Transcript Recommendations methods
+    def create_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> str:
+        """Create transcript recommendations record"""
+        try:
+            # First, get the clinical trial IDs from external IDs
+            eligible_trial_uuids = self._get_trial_uuids_from_external_ids(eligible_trial_ids)
+            uncertain_trial_uuids = self._get_trial_uuids_from_external_ids(uncertain_trial_ids)
+            
+            recommendations_data = {
+                "transcript_id": transcript_id,
+                "eligible_trials": eligible_trial_uuids,
+                "uncertain_trials": uncertain_trial_uuids
+            }
+            
+            result = self.client.table("transcript_recommendations").insert(recommendations_data).execute()
+            
+            if result.data:
+                recommendations_id = result.data[0]["id"]
+                logger.info(f"Created transcript recommendations with ID: {recommendations_id}")
+                return recommendations_id
+            else:
+                raise Exception("Failed to create transcript recommendations - no data returned")
+        except Exception as e:
+            logger.error(f"Error creating transcript recommendations: {e}")
+            raise
+    
+    def update_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> None:
+        """Update transcript recommendations record"""
+        try:
+            # First, get the clinical trial IDs from external IDs
+            eligible_trial_uuids = self._get_trial_uuids_from_external_ids(eligible_trial_ids)
+            uncertain_trial_uuids = self._get_trial_uuids_from_external_ids(uncertain_trial_ids)
+            
+            update_data = {
+                "eligible_trials": eligible_trial_uuids,
+                "uncertain_trials": uncertain_trial_uuids
+            }
+            
+            result = self.client.table("transcript_recommendations").update(update_data).eq("transcript_id", transcript_id).execute()
+            
+            if not result.data:
+                raise Exception(f"Transcript recommendations with transcript_id {transcript_id} not found")
+                
+            logger.info(f"Updated transcript recommendations for transcript: {transcript_id}")
+        except Exception as e:
+            logger.error(f"Error updating transcript recommendations: {e}")
+            raise
+    
+    def get_transcript_recommendations(self, transcript_id: str) -> Optional[Dict[str, List[str]]]:
+        """Get transcript recommendations record"""
+        try:
+            result = self.client.table("transcript_recommendations").select("*").eq("transcript_id", transcript_id).execute()
+            if result.data:
+                recommendations_data = result.data[0]
+                # Convert UUIDs back to external IDs
+                eligible_external_ids = self._get_external_ids_from_uuids(recommendations_data.get("eligible_trials", []))
+                uncertain_external_ids = self._get_external_ids_from_uuids(recommendations_data.get("uncertain_trials", []))
+                
+                return {
+                    "eligible_trial_ids": eligible_external_ids,
+                    "uncertain_trial_ids": uncertain_external_ids
+                }
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"Error getting transcript recommendations: {e}")
+            raise
+    
+    def _get_external_ids_from_uuids(self, uuids: List[str]) -> List[str]:
+        """Get external IDs from trial UUIDs"""
+        if not uuids:
+            return []
+        
+        try:
+            result = self.client.table("clinical_trials").select("external_id").in_("id", uuids).execute()
+            return [trial["external_id"] for trial in result.data]
+        except Exception as e:
+            logger.error(f"Error getting external IDs from UUIDs: {e}")
+            return []
+    
+    def _get_trial_uuids_from_external_ids(self, external_ids: List[str]) -> List[str]:
+        """Get trial UUIDs from external IDs"""
+        if not external_ids:
+            return []
+        
+        try:
+            result = self.client.table("clinical_trials").select("id").in_("external_id", external_ids).execute()
+            return [trial["id"] for trial in result.data]
+        except Exception as e:
+            logger.error(f"Error getting trial UUIDs from external IDs: {e}")
+            return []
+    
+    def _row_to_clinical_trial(self, row: Dict[str, Any]) -> ClinicalTrial:
+        """Convert database row to ClinicalTrial domain object"""
+        # Convert locations back to Location objects
+        locations = []
+        if row.get("locations"):
+            for location_str in row["locations"]:
+                # Parse "City, State" or "City, State, Country" format
+                parts = location_str.split(", ")
+                if len(parts) >= 2:
+                    city = parts[0]
+                    state = parts[1]
+                    country = parts[2] if len(parts) > 2 else "United States"
+                    locations.append(Location(
+                        status="Unknown",
+                        facility="Unknown",
+                        city=city,
+                        state=state,
+                        country=country
+                    ))
+        
+        return ClinicalTrial(
+            external_id=row["external_id"],
+            brief_title=row["brief_title"],
+            official_title=row.get("official_title", ""),
+            status=row["status"],
+            conditions=row.get("conditions", []),
+            sponsor_name=row.get("sponsor_name", ""),
+            phases=row.get("phases", []),
+            minimum_age=row.get("minimum_age"),
+            maximum_age=row.get("maximum_age"),
+            locations=locations,
+            brief_summary=row.get("brief_summary"),
+            interventions=[]  # Not stored in simplified schema
         )

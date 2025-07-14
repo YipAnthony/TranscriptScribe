@@ -34,6 +34,14 @@ class DummyDBAdapter(DatabasePort):
         pass
     def delete_transcript(self, transcript_id):
         pass
+    def upsert_clinical_trial(self, clinical_trial):
+        return "trial-123"
+    def create_transcript_recommendations(self, transcript_id, eligible_trial_ids, uncertain_trial_ids):
+        return "recommendations-123"
+    def update_transcript_recommendations(self, transcript_id, eligible_trial_ids, uncertain_trial_ids):
+        pass
+    def get_transcript_recommendations(self, transcript_id):
+        return None
 
 class DummyLLMAdapter(LLMPort):
     def call_llm_json(self, prompt, temperature=0.1, max_tokens=4096):

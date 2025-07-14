@@ -4,8 +4,8 @@ import logging
 from dependencies import get_transcript_handler, get_clinical_trial_handler
 from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
 from schemas.clinical_trial import (
-    GetClinicalTrialRecommendationsRequest,
-    GetClinicalTrialRecommendationsResponse,
+    CreateClinicalTrialRecommendationsRequest,
+    CreateClinicalTrialRecommendationsResponse,
     GetClinicalTrialRequest,
     GetClinicalTrialResponse,
 )
@@ -40,14 +40,14 @@ async def process_transcript(
     return transcript_handler.process_transcript(request)
 
 # Clinical trial endpoints
-@api_router.post("/clinical-trials/recommendations", response_model=GetClinicalTrialRecommendationsResponse)
-async def get_clinical_trial_recommendations(
-    request: GetClinicalTrialRecommendationsRequest,
+@api_router.post("/clinical-trials/recommendations", response_model=CreateClinicalTrialRecommendationsResponse)
+async def create_clinical_trial_recommendations(
+    request: CreateClinicalTrialRecommendationsRequest,
     clinical_trial_handler = Depends(get_clinical_trial_handler)
-) -> GetClinicalTrialRecommendationsResponse:
-    """Get clinical trial recommendations"""
-    logger.info(f"Getting clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
-    return await clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
+) -> CreateClinicalTrialRecommendationsResponse:
+    """Create clinical trial recommendations"""
+    logger.info(f"Creating clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
+    return await clinical_trial_handler.handle_create_clinical_trial_recommendations(request)
 
 @api_router.get("/clinical-trials/{trial_id}", response_model=GetClinicalTrialResponse)
 async def get_clinical_trial(
