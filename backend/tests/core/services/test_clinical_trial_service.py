@@ -109,10 +109,11 @@ class TestClinicalTrialService:
                                            sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
         """Test successful create_recommended_trials with multi-agent approach"""
         # Setup mocks for eligibility filter agent and relevance ranking agents
+        # Return 2 trials as eligible and 1 as uncertain (matching the sample_trials length)
         mock_llm_adapter.call_llm_json.side_effect = [
-            {"eligible_trial_ids": ["NCT12345678"], "uncertain_trial_ids": ["NCT87654321"]},  # Agent 1 response
-            {"ranked_trial_ids": ["NCT12345678"]},  # Agent 2 response for eligible trials
-            {"ranked_trial_ids": ["NCT87654321"]}   # Agent 2 response for uncertain trials
+            {"eligible_trial_ids": ["NCT12345678", "NCT87654321"], "uncertain_trial_ids": ["NCT11111111"]},  # Agent 1 response
+            {"ranked_trial_ids": ["NCT12345678", "NCT87654321"]},  # Agent 2 response for eligible trials
+            {"ranked_trial_ids": ["NCT11111111"]}   # Agent 2 response for uncertain trials
         ]
         
         mock_db_adapter.get_patient.return_value = sample_patient
@@ -129,6 +130,8 @@ class TestClinicalTrialService:
         mock_db_adapter.get_patient.assert_called_once_with("patient-123")
         mock_db_adapter.get_transcript.assert_called_once_with("transcript-456")
         mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_awaited_once_with(sample_patient, sample_transcript)
+        
+        # Verify that all 3 trials were stored (2 eligible + 1 uncertain)
         mock_db_adapter.upsert_clinical_trials.assert_called_once_with(sample_trials)
         assert mock_llm_adapter.call_llm_json.call_count == 3  # Called 3 times: Agent 1 + Agent 2 (eligible) + Agent 2 (uncertain)
     

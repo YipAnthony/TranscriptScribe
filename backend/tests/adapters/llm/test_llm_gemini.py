@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, AsyncMock
 from typing import Generator, Tuple
 from adapters.llm.gemini import GeminiAdapter
 from ports.llm import LLMResponse
@@ -55,10 +55,18 @@ class TestGeminiAdapter:
         """Test successful LLM call"""
         adapter, mock_generate_content = gemini_adapter
         
-        # Mock response
+        # Mock response with proper structure
         mock_response = Mock()
-        mock_response.text = "Hello, this is a test response"
-        mock_response.candidates = []
+        mock_response.finish_reason = "STOP"
+        
+        # Mock candidate with content parts
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = "Hello, this is a test response"
+        mock_candidate.content.parts = [mock_part]
+        mock_candidate.finish_reason = "STOP"
+        
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
@@ -69,7 +77,7 @@ class TestGeminiAdapter:
         assert isinstance(result, LLMResponse)
         assert result.content == "Hello, this is a test response"
         assert result.metadata is not None
-        assert "gemini-2.0" in result.metadata
+        assert "gemini-2.0" in result.metadata["model"]
         
         # Verify the model was called correctly
         mock_generate_content.assert_called_once()
@@ -80,9 +88,13 @@ class TestGeminiAdapter:
         """Test LLM call with custom parameters"""
         adapter, mock_generate_content = gemini_adapter
         
+        # Mock response with proper structure
         mock_response = Mock()
-        mock_response.text = "Custom response"
-        mock_response.candidates = []
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = "Custom response"
+        mock_candidate.content.parts = [mock_part]
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
@@ -106,7 +118,11 @@ class TestGeminiAdapter:
         
         # Mock response with JSON
         mock_response = Mock()
-        mock_response.text = '{"key": "value", "number": 42}'
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = '{"key": "value", "number": 42}'
+        mock_candidate.content.parts = [mock_part]
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
@@ -129,7 +145,11 @@ class TestGeminiAdapter:
         
         # Mock response with JSON in markdown
         mock_response = Mock()
-        mock_response.text = '```json\n{"key": "value"}\n```'
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = '```json\n{"key": "value"}\n```'
+        mock_candidate.content.parts = [mock_part]
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
@@ -145,7 +165,11 @@ class TestGeminiAdapter:
         
         # Mock response with invalid JSON
         mock_response = Mock()
-        mock_response.text = "This is not JSON"
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = "This is not JSON"
+        mock_candidate.content.parts = [mock_part]
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
@@ -159,7 +183,11 @@ class TestGeminiAdapter:
         
         # Mock successful response
         mock_response = Mock()
-        mock_response.text = "Hello"
+        mock_candidate = Mock()
+        mock_part = Mock()
+        mock_part.text = "Hello"
+        mock_candidate.content.parts = [mock_part]
+        mock_response.candidates = [mock_candidate]
         
         mock_generate_content.return_value = mock_response
         
