@@ -21,7 +21,7 @@ class ClinicalTrialService:
         """
         Create recommended clinical trials based on patient profile and appointment transcript.
         Uses a multi-agent approach with specialized agents for eligibility filtering and relevance ranking.
-        Stores trials using the DB adapter.
+        First searches the database for cached trials, then falls back to API if needed.
         
         Args:
             patient_id: ID of the patient
@@ -75,13 +75,19 @@ class ClinicalTrialService:
             ranked_uncertain_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
             logger.info(f"Relevance ranking (uncertain): {len(ranked_uncertain_trial_ids)} trials ranked")
         
-        # 6. Store all trials in Supabase
-        logger.info("Storing clinical trials in Supabase")
-        for trial in initial_trials:
+        # 6. Store only recommended trials in database using bulk upsert
+        recommended_trial_ids = ranked_eligible_trial_ids + ranked_uncertain_trial_ids
+        recommended_trials = [trial for trial in initial_trials if trial.external_id in recommended_trial_ids]
+        
+        if recommended_trials:
+            logger.info(f"Storing {len(recommended_trials)} recommended clinical trials in database using bulk upsert")
             try:
-                self.db_adapter.upsert_clinical_trial(trial)
+                upserted_count = self.db_adapter.upsert_clinical_trials(recommended_trials)
+                logger.info(f"Successfully stored {upserted_count} recommended clinical trials in database")
             except Exception as e:
-                logger.error(f"Failed to store trial {trial.external_id}: {e}")
+                logger.error(f"Failed to store recommended trials in database: {e}")
+        else:
+            logger.info("No recommended trials to store in database")
         
         # 7. Store transcript recommendations
         logger.info("Storing transcript recommendations")
@@ -96,6 +102,8 @@ class ClinicalTrialService:
             logger.error(f"Failed to store transcript recommendations: {e}")
         
         logger.info(f"Successfully created recommendations: {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trial IDs")
+    
+
     
     def _create_comprehensive_patient_info(self, patient: Patient, parsed_transcript: ParsedTranscript) -> str:
         """

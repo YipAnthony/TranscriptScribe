@@ -282,6 +282,59 @@ class SupabaseAdapter(DatabasePort):
             logger.error(f"Error getting clinical trial {external_id}: {e}")
             raise
     
+    def upsert_clinical_trials(self, clinical_trials: List[ClinicalTrial]) -> int:
+        """
+        Bulk insert or update clinical trials
+        
+        Args:
+            clinical_trials: List of ClinicalTrial objects to upsert
+            
+        Returns:
+            int: Number of trials successfully upserted
+        """
+        try:
+            if not clinical_trials:
+                logger.info("No clinical trials to upsert")
+                return 0
+            
+            # Prepare data for bulk upsert
+            trials_data = []
+            for trial in clinical_trials:
+                # Convert locations to text array
+                locations = []
+                if trial.locations:
+                    for location in trial.locations:
+                        location_str = f"{location.city}, {location.state}"
+                        if location.country and location.country != "United States":
+                            location_str += f", {location.country}"
+                        locations.append(location_str)
+                
+                trial_data = {
+                    "external_id": trial.external_id,
+                    "brief_title": trial.brief_title,
+                    "status": trial.status,
+                    "conditions": trial.conditions,
+                    "brief_summary": trial.brief_summary,
+                    "locations": locations
+                }
+                trials_data.append(trial_data)
+            
+            # Perform bulk upsert
+            result = self.client.table("clinical_trials").upsert(
+                trials_data, 
+                on_conflict="external_id"
+            ).execute()
+            
+            upserted_count = len(result.data) if result.data else 0
+            logger.info(f"Successfully upserted {upserted_count} clinical trials")
+            return upserted_count
+            
+        except Exception as e:
+            logger.error(f"Error bulk upserting clinical trials: {e}")
+            raise
+    
+
+    
     # Transcript Recommendations methods
     def create_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> str:
         """Create transcript recommendations record"""

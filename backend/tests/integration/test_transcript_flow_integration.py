@@ -209,6 +209,7 @@ class TestTranscriptFlowIntegration:
         mock_db.get_patient.assert_called_once_with("test-patient-123")
         mock_db.get_transcript.assert_called_once_with("test-transcript-123")
         mock_ctg.find_recommended_clinical_trials.assert_awaited_once()
+        mock_db.upsert_clinical_trials.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_clinical_trial_details_integration(self, handlers, mock_adapters):

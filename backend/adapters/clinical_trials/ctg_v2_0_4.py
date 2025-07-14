@@ -112,6 +112,8 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             logger.error(f"Error getting clinical trial {trial_id}: {e}")
             raise
     
+
+    
     def _build_search_params(self, patient: Patient, parsed_transcript: ParsedTranscript) -> Dict[str, Any]:
         """
         Build search parameters for CTG API based on patient and transcript data
@@ -185,7 +187,13 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                 # Include both the specific sex and "All" to be more inclusive
                 advanced_filters.append(f'(AREA[Sex]"{patient.sex.upper()}" OR AREA[Sex]"All")')
         
-        # Add location filter if available
+        # Add location filter - hardcode USA as the country
+        location_queries = []
+        
+        # Always include USA in the search
+        location_queries.append('AREA[LocationCountry]"United States"')
+        
+        # If patient has specific location data, add it to the search
         if patient.address:
             lat = getattr(patient.address, "latitude", None)
             lon = getattr(patient.address, "longitude", None)
@@ -193,30 +201,20 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             # If lat/lon available, use geo filter with expanded range
             if lat and lon:
                 params["filter.geo"] = f"distance({lat},{lon},500mi)"
-            # Otherwise, use location-based search with broader scope
             else:
-                location_queries = []
+                # Add specific location queries if available
                 if patient.address.city:
                     location_queries.append(f'AREA[LocationCity]"{patient.address.city}"')
                 if patient.address.state:
                     location_queries.append(f'AREA[LocationState]"{patient.address.state}"')
-                if patient.address.country:
-                    location_queries.append(f'AREA[LocationCountry]"{patient.address.country}"')
                 if patient.address.zip_code:
                     location_queries.append(f'AREA[LocationZip]"{patient.address.zip_code}"')
-                
-                # Add broader regional searches if we have state/country
-                if patient.address.state:
-                    # Search for neighboring states or broader regions
-                    location_queries.append(f'AREA[LocationState]"{patient.address.state}"')
-                if patient.address.country:
-                    # Search within the same country
-                    location_queries.append(f'AREA[LocationCountry]"{patient.address.country}"')
-                
-                if location_queries:
-                    # Use OR logic for location to be more inclusive
-                    location_query = f"SEARCH[Location]({' OR '.join(location_queries)})"
-                    advanced_filters.append(location_query)
+        
+        # Always add location filter for USA
+        if location_queries:
+            # Use AND logic for location to be more restrictive
+            location_query = f"SEARCH[Location]({' AND '.join(location_queries)})"
+            advanced_filters.append(location_query)
         
         # Combine all advanced filters with AND logic
         if advanced_filters:

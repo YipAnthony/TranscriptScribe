@@ -183,4 +183,105 @@ def test_transcript_error_handling(adapter: SupabaseAdapter) -> None:
     with pytest.raises(TranscriptNotFoundError):
         adapter.get_transcript(non_existent_transcript_id)
     
-    logger.info("✅ Correctly raised TranscriptNotFoundError for non-existent transcript") 
+    logger.info("✅ Correctly raised TranscriptNotFoundError for non-existent transcript")
+
+def test_upsert_clinical_trials(adapter: SupabaseAdapter) -> None:
+    """Test bulk upsert of clinical trials"""
+    logger.info("Testing bulk upsert of clinical trials...")
+    
+    from domain.clinical_trial import ClinicalTrial, Location
+    
+    # Create test clinical trials
+    test_trials = [
+        ClinicalTrial(
+            external_id="NCT12345678",
+            brief_title="Test Clinical Trial 1",
+            official_title="A Phase 3 Study of Test Drug 1",
+            status="RECRUITING",
+            conditions=["Diabetes", "Hypertension"],
+            sponsor_name="Test Pharma 1",
+            phases=["PHASE_3"],
+            brief_summary="This is a test clinical trial for diabetes",
+            locations=[
+                Location(
+                    status="RECRUITING",
+                    facility="Test Hospital 1",
+                    city="New York",
+                    state="NY",
+                    country="United States",
+                    zip_code="10001"
+                )
+            ]
+        ),
+        ClinicalTrial(
+            external_id="NCT87654321",
+            brief_title="Test Clinical Trial 2",
+            official_title="A Phase 2 Study of Test Drug 2",
+            status="RECRUITING",
+            conditions=["Asthma"],
+            sponsor_name="Test Pharma 2",
+            phases=["PHASE_2"],
+            brief_summary="This is a test clinical trial for asthma",
+            locations=[
+                Location(
+                    status="RECRUITING",
+                    facility="Test Hospital 2",
+                    city="Los Angeles",
+                    state="CA",
+                    country="United States",
+                    zip_code="90210"
+                )
+            ]
+        )
+    ]
+    
+    try:
+        # Test bulk upsert
+        upserted_count = adapter.upsert_clinical_trials(test_trials)
+        logger.info(f"✅ Successfully upserted {upserted_count} clinical trials")
+        
+        # Verify the trials were stored by retrieving them
+        for trial in test_trials:
+            retrieved_trial = adapter.get_clinical_trial(trial.external_id)
+            assert retrieved_trial is not None
+            assert retrieved_trial.external_id == trial.external_id
+            assert retrieved_trial.brief_title == trial.brief_title
+            assert retrieved_trial.status == trial.status
+            assert retrieved_trial.conditions == trial.conditions
+            logger.info(f"✅ Verified trial {trial.external_id} was stored correctly")
+        
+        # Test upserting the same trials again (should update, not create duplicates)
+        upserted_count_2 = adapter.upsert_clinical_trials(test_trials)
+        logger.info(f"✅ Successfully upserted {upserted_count_2} clinical trials (update)")
+        
+        # Verify no duplicates were created
+        for trial in test_trials:
+            retrieved_trial = adapter.get_clinical_trial(trial.external_id)
+            assert retrieved_trial is not None
+            assert retrieved_trial.external_id == trial.external_id
+            logger.info(f"✅ Verified trial {trial.external_id} was updated correctly")
+        
+    except Exception as e:
+        logger.error(f"❌ Error in bulk upsert test: {e}")
+        raise
+    
+    finally:
+        # Clean up: delete the test trials
+        for trial in test_trials:
+            try:
+                adapter.client.table("clinical_trials").delete().eq("external_id", trial.external_id).execute()
+                logger.info(f"✅ Deleted test trial {trial.external_id}")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not delete test trial {trial.external_id}: {e}")
+
+def test_upsert_clinical_trials_empty_list(adapter: SupabaseAdapter) -> None:
+    """Test bulk upsert with empty list"""
+    logger.info("Testing bulk upsert with empty list...")
+    
+    try:
+        upserted_count = adapter.upsert_clinical_trials([])
+        assert upserted_count == 0
+        logger.info("✅ Correctly handled empty list")
+    except Exception as e:
+        logger.error(f"❌ Error handling empty list: {e}")
+        raise 

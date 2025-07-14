@@ -10,11 +10,11 @@ class TranscriptHandler:
         Process transcript request - invokes transcript service
         """
         try:
-            self.transcript_service.process_raw_transcript(
+            transcript_id = self.transcript_service.process_raw_transcript(
                 patient_id=request.patient_id,
                 raw_transcript=request.raw_transcript,
                 recorded_at=request.recorded_at.isoformat() if request.recorded_at else None
             )
-            return TranscriptResponse(status="success", error=None)
+            return TranscriptResponse(status="success", error=None, transcript_id=transcript_id)
         except Exception as e:
-            return TranscriptResponse(status="error", error=str(e)) 
+            return TranscriptResponse(status="error", error=str(e), transcript_id=None) 

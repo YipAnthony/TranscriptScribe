@@ -129,6 +129,7 @@ class TestClinicalTrialService:
         mock_db_adapter.get_patient.assert_called_once_with("patient-123")
         mock_db_adapter.get_transcript.assert_called_once_with("transcript-456")
         mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_awaited_once_with(sample_patient, sample_transcript)
+        mock_db_adapter.upsert_clinical_trials.assert_called_once_with(sample_trials)
         assert mock_llm_adapter.call_llm_json.call_count == 3  # Called 3 times: Agent 1 + Agent 2 (eligible) + Agent 2 (uncertain)
     
     @pytest.mark.asyncio

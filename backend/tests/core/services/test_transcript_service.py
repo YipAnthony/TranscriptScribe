@@ -36,6 +36,8 @@ class DummyDBAdapter(DatabasePort):
         pass
     def upsert_clinical_trial(self, clinical_trial):
         return "trial-123"
+    def upsert_clinical_trials(self, clinical_trials):
+        return len(clinical_trials)
     def create_transcript_recommendations(self, transcript_id, eligible_trial_ids, uncertain_trial_ids):
         return "recommendations-123"
     def update_transcript_recommendations(self, transcript_id, eligible_trial_ids, uncertain_trial_ids):

@@ -114,6 +114,21 @@ class DatabasePort(ABC):
         """
         pass
     
+    @abstractmethod
+    def upsert_clinical_trials(self, clinical_trials: List[ClinicalTrial]) -> int:
+        """
+        Bulk insert or update clinical trials
+        
+        Args:
+            clinical_trials: List of ClinicalTrial objects to upsert
+            
+        Returns:
+            int: Number of trials successfully upserted
+        """
+        pass
+    
+
+    
     # Transcript Recommendations methods
     @abstractmethod
     def create_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> str:
