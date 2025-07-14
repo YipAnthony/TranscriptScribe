@@ -182,7 +182,8 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         # Add sex filter if available
         if patient.sex:
             if patient.sex.upper() in ["MALE", "FEMALE"]:
-                advanced_filters.append(f'AREA[Sex]"{patient.sex.upper()}"')
+                # Include both the specific sex and "All" to be more inclusive
+                advanced_filters.append(f'(AREA[Sex]"{patient.sex.upper()}" OR AREA[Sex]"All")')
         
         # Add location filter if available
         if patient.address:
