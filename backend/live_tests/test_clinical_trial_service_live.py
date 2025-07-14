@@ -1,24 +1,26 @@
 """
 Live test for ClinicalTrialService with real LLM integration
 """
+import pytest
 import os
 import sys
-from datetime import date
-from typing import List
-
-# Add the backend directory to the path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from adapters.llm.gemini import GeminiAdapter
-from adapters.db.supabase import SupabaseAdapter
-from adapters.clinical_trials.ctg_v2_0_4 import CTGV2_0_4Adapter
+import logging
+from datetime import datetime, date
+from dotenv import load_dotenv
 from core.services.clinical_trial_service import ClinicalTrialService
+from adapters.db.supabase import SupabaseAdapter
+from adapters.llm.gemini import GeminiAdapter
+from adapters.clinical_trials.ctg_v2_0_4 import CTGV2_0_4Adapter
 from domain.patient import Patient
 from domain.parsed_transcript import ParsedTranscript
-from domain.clinical_trial import ClinicalTrial
+from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-def test_clinical_trial_service_live():
+# Add the backend directory to the path
+@pytest.mark.asyncio
+async def test_clinical_trial_service_live():
     """Test the clinical trial service with real adapters"""
     print("Testing ClinicalTrialService with real adapters...")
     
@@ -75,7 +77,7 @@ def test_clinical_trial_service_live():
         
         # Get real clinical trials from the adapter
         print("Fetching real clinical trials...")
-        real_trials = clinical_trials_adapter.find_recommended_clinical_trials(test_patient, test_transcript)
+        real_trials = await clinical_trials_adapter.find_recommended_clinical_trials(test_patient, test_transcript)
         print(f"Found {len(real_trials)} real clinical trials")
         
         if len(real_trials) == 0:
@@ -84,7 +86,7 @@ def test_clinical_trial_service_live():
         
         # Test Agent 1: Eligibility Filter Agent
         print("Testing Agent 1: Eligibility Filter Agent...")
-        eligibility_result = service._eligibility_filter_agent(test_patient, test_transcript, real_trials)
+        eligibility_result = await service._eligibility_filter_agent(test_patient, test_transcript, real_trials)
         eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
         uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
         print(f"✅ Eligibility filter completed.")
@@ -96,7 +98,7 @@ def test_clinical_trial_service_live():
         ranked_eligible_trial_ids = []
         if eligible_trial_ids:
             print("\nTesting Agent 2: Relevance Ranking Agent (Eligible Trials)...")
-            ranked_eligible_trial_ids = service._relevance_ranking_agent(test_patient, test_transcript, real_trials, eligible_trial_ids, "eligible")
+            ranked_eligible_trial_ids = await service._relevance_ranking_agent(test_patient, test_transcript, real_trials, eligible_trial_ids, "eligible")
             print(f"✅ Relevance ranking (eligible) completed. Ranked trials: {ranked_eligible_trial_ids}")
         else:
             print("⚠️  No eligible trials found, skipping relevance ranking for eligible trials")
@@ -105,7 +107,7 @@ def test_clinical_trial_service_live():
         ranked_uncertain_trial_ids = []
         if uncertain_trial_ids:
             print("\nTesting Agent 2: Relevance Ranking Agent (Uncertain Trials)...")
-            ranked_uncertain_trial_ids = service._relevance_ranking_agent(test_patient, test_transcript, real_trials, uncertain_trial_ids, "uncertain")
+            ranked_uncertain_trial_ids = await service._relevance_ranking_agent(test_patient, test_transcript, real_trials, uncertain_trial_ids, "uncertain")
             print(f"✅ Relevance ranking (uncertain) completed. Ranked trials: {ranked_uncertain_trial_ids}")
         else:
             print("⚠️  No uncertain trials found, skipping relevance ranking for uncertain trials")
@@ -192,4 +194,5 @@ def test_clinical_trial_service_live():
 
 
 if __name__ == "__main__":
-    test_clinical_trial_service_live() 
+    import asyncio
+    asyncio.run(test_clinical_trial_service_live()) 

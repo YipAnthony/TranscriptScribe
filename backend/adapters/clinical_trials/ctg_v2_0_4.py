@@ -41,7 +41,7 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         """Async context manager exit"""
         await self.client.aclose()
     
-    def find_recommended_clinical_trials(self, patient: Patient, parsed_transcript: ParsedTranscript) -> List[ClinicalTrial]:
+    async def find_recommended_clinical_trials(self, patient: Patient, parsed_transcript: ParsedTranscript) -> List[ClinicalTrial]:
         """
         Find recommended clinical trials using ClinicalTrials.gov v2.0.4 API
         
@@ -52,36 +52,11 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         Returns:
             List[ClinicalTrial]: List of recommended clinical trials
         """
-        import asyncio
-        try:
-            # Run the async version in a new event loop if needed
-            try:
-                loop = asyncio.get_running_loop()
-                # If we're already in an async context, we can't use run_until_complete
-                # This is a limitation of the sync interface
-                logger.warning("find_recommended_clinical_trials called from async context - use find_recommended_clinical_trials_async instead")
-                return []
-            except RuntimeError:
-                # No running loop, we can create one
-                return asyncio.run(self.find_recommended_clinical_trials_async(patient, parsed_transcript))
-        except Exception as e:
-            logger.error(f"Error in sync find_recommended_clinical_trials: {e}")
-            return []
-    
-    async def find_recommended_clinical_trials_async(self, patient: Patient, parsed_transcript: ParsedTranscript, debug: bool = False) -> Any:
-        """
-        Async version of find_recommended_clinical_trials
-        If debug is True, return (clinical_trials, raw_response), else just clinical_trials.
-        """
         try:
             # Build comprehensive OR-based search with all available filters
             search_params = self._build_search_params(patient, parsed_transcript)
             
-            if debug:
-                trials_data, raw_response = await self._search_trials(search_params, return_raw=True)
-            else:
-                trials_data = await self._search_trials(search_params)
-                raw_response = None
+            trials_data = await self._search_trials(search_params)
             
             clinical_trials = []
             for trial_data in trials_data:
@@ -93,47 +68,15 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                     continue
             
             logger.info(f"Found {len(clinical_trials)} clinical trials")
-            if debug:
-                return clinical_trials, raw_response
             return clinical_trials
             
         except Exception as e:
             logger.error(f"Error finding clinical trials: {e}")
-            if debug:
-                return [], {}
-        return []
+            return []
     
-    def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
+    async def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
         """
         Get a specific clinical trial by NCT ID using ClinicalTrials.gov v2.0.4 API
-        
-        Args:
-            trial_id: The NCT ID of the clinical trial
-            
-        Returns:
-            ClinicalTrial: The clinical trial details
-            
-        Raises:
-            Exception: If trial is not found or API error occurs
-        """
-        import asyncio
-        try:
-            # Run the async version in a new event loop if needed
-            try:
-                loop = asyncio.get_running_loop()
-                # If we're already in an async context, we can't use run_until_complete
-                logger.warning("get_clinical_trial called from async context - use get_clinical_trial_async instead")
-                raise Exception("Use async version in async context")
-            except RuntimeError:
-                # No running loop, we can create one
-                return asyncio.run(self.get_clinical_trial_async(trial_id))
-        except Exception as e:
-            logger.error(f"Error in sync get_clinical_trial: {e}")
-            raise
-    
-    async def get_clinical_trial_async(self, trial_id: str) -> ClinicalTrial:
-        """
-        Async version of get_clinical_trial
         
         Args:
             trial_id: The NCT ID of the clinical trial

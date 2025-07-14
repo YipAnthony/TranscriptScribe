@@ -47,7 +47,7 @@ async def get_clinical_trial_recommendations(
 ) -> GetClinicalTrialRecommendationsResponse:
     """Get clinical trial recommendations"""
     logger.info(f"Getting clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
-    return clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
+    return await clinical_trial_handler.handle_get_clinical_trial_recommendations(request)
 
 @api_router.get("/clinical-trials/{trial_id}", response_model=GetClinicalTrialResponse)
 async def get_clinical_trial(
@@ -57,6 +57,6 @@ async def get_clinical_trial(
     """Get a specific clinical trial by ID"""
     logger.info(f"Getting clinical trial details for ID: {trial_id}")
     request = GetClinicalTrialRequest(trial_id=trial_id)
-    return clinical_trial_handler.handle_get_clinical_trial(request)
+    return await clinical_trial_handler.handle_get_clinical_trial(request)
 
 # Note: Exception handling is done at the app level in main.py 

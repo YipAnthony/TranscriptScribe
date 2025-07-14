@@ -13,13 +13,13 @@ class ClinicalTrialHandler:
     def __init__(self, trial_service: ClinicalTrialService):
         self.trial_service = trial_service
     
-    def handle_get_clinical_trial_recommendations(self, request: GetClinicalTrialRecommendationsRequest) -> GetClinicalTrialRecommendationsResponse:
+    async def handle_get_clinical_trial_recommendations(self, request: GetClinicalTrialRecommendationsRequest) -> GetClinicalTrialRecommendationsResponse:
         """
         Handle request to get clinical trial recommendations
         """
         try:
             # Find recommended trials using business logic
-            trial_results = self.trial_service.find_recommended_trials(
+            trial_results = await self.trial_service.find_recommended_trials(
                 patient_id=request.patient_id,
                 transcript_id=request.transcript_id
             )
@@ -67,13 +67,13 @@ class ClinicalTrialHandler:
             # Re-raise other exceptions to be handled by the API layer
             raise e
     
-    def handle_get_clinical_trial(self, request: GetClinicalTrialRequest) -> GetClinicalTrialResponse:
+    async def handle_get_clinical_trial(self, request: GetClinicalTrialRequest) -> GetClinicalTrialResponse:
         """
         Handle request to get a specific clinical trial
         """
         try:
             # Get specific trial using business logic
-            trial = self.trial_service.get_clinical_trial(trial_id=request.trial_id)
+            trial = await self.trial_service.get_clinical_trial(trial_id=request.trial_id)
             
             # Convert domain model to detailed response
             detailed_data = trial.get_detailed_data()

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from typing import List
 from datetime import date
 from domain.patient import Patient
@@ -103,7 +103,8 @@ class TestClinicalTrialService:
             )
         ]
     
-    def test_find_recommended_trials_success(self, clinical_trial_service: ClinicalTrialService, 
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_success(self, clinical_trial_service: ClinicalTrialService, 
                                            mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock, 
                                            mock_llm_adapter: Mock, sample_patient: Patient, 
                                            sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
@@ -117,10 +118,10 @@ class TestClinicalTrialService:
         
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = sample_trials
+        mock_clinical_trials_adapter.find_recommended_clinical_trials = AsyncMock(return_value=sample_trials)
         
         # Call the method
-        result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+        result = await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results structure
         assert isinstance(result, dict)
@@ -138,28 +139,30 @@ class TestClinicalTrialService:
         # Verify mocks were called correctly
         mock_db_adapter.get_patient.assert_called_once_with("patient-123")
         mock_db_adapter.get_transcript.assert_called_once_with("transcript-456")
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_called_once_with(sample_patient, sample_transcript)
+        mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_awaited_once_with(sample_patient, sample_transcript)
         assert mock_llm_adapter.call_llm_json.call_count == 3  # Called 3 times: Agent 1 + Agent 2 (eligible) + Agent 2 (uncertain)
     
-    def test_find_recommended_trials_no_initial_trials(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_no_initial_trials(self, clinical_trial_service: ClinicalTrialService,
                                                      mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
                                                      sample_patient: Patient, sample_transcript: ParsedTranscript) -> None:
         """Test find_recommended_trials when no initial trials are found"""
         # Setup mocks
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = []
+        mock_clinical_trials_adapter.find_recommended_clinical_trials = AsyncMock(return_value=[])
         
         # Call the method
-        result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+        result = await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results
         assert result == {"eligible_trials": [], "uncertain_trials": []}
         
         # Verify LLM was not called since no trials were found
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_called_once()
+        mock_clinical_trials_adapter.find_recommended_clinical_trials.assert_awaited_once()
     
-    def test_find_recommended_trials_patient_not_found(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_patient_not_found(self, clinical_trial_service: ClinicalTrialService,
                                                      mock_db_adapter: Mock) -> None:
         """Test find_recommended_trials when patient is not found"""
         # Setup mock to raise exception
@@ -167,9 +170,10 @@ class TestClinicalTrialService:
         
         # Call the method and expect exception
         with pytest.raises(PatientNotFoundError, match="Patient not found"):
-            clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+            await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
     
-    def test_find_recommended_trials_transcript_not_found(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_transcript_not_found(self, clinical_trial_service: ClinicalTrialService,
                                                         mock_db_adapter: Mock, sample_patient: Patient) -> None:
         """Test find_recommended_trials when transcript is not found"""
         # Setup mocks
@@ -178,9 +182,10 @@ class TestClinicalTrialService:
         
         # Call the method and expect exception
         with pytest.raises(TranscriptNotFoundError, match="Transcript not found"):
-            clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+            await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
     
-    def test_find_recommended_trials_llm_failure_fallback(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_llm_failure_fallback(self, clinical_trial_service: ClinicalTrialService,
                                                         mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
                                                         mock_llm_adapter: Mock, sample_patient: Patient,
                                                         sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
@@ -188,16 +193,17 @@ class TestClinicalTrialService:
         # Setup mocks
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = sample_trials
+        mock_clinical_trials_adapter.find_recommended_clinical_trials = AsyncMock(return_value=sample_trials)
         mock_llm_adapter.call_llm_json.side_effect = Exception("LLM API Error")
         
         # Call the method
-        result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+        result = await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results - should return empty lists as conservative fallback
         assert result == {"eligible_trials": [], "uncertain_trials": []}
     
-    def test_find_recommended_trials_llm_unexpected_response(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_llm_unexpected_response(self, clinical_trial_service: ClinicalTrialService,
                                                            mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
                                                            mock_llm_adapter: Mock, sample_patient: Patient,
                                                            sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
@@ -205,16 +211,17 @@ class TestClinicalTrialService:
         # Setup mocks
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = sample_trials
+        mock_clinical_trials_adapter.find_recommended_clinical_trials = AsyncMock(return_value=sample_trials)
         mock_llm_adapter.call_llm_json.return_value = {"unexpected": "format"}
         
         # Call the method
-        result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+        result = await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results - should return empty lists as conservative fallback
         assert result == {"eligible_trials": [], "uncertain_trials": []}
     
-    def test_find_recommended_trials_llm_empty_response(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_find_recommended_trials_llm_empty_response(self, clinical_trial_service: ClinicalTrialService,
                                                       mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock,
                                                       mock_llm_adapter: Mock, sample_patient: Patient,
                                                       sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
@@ -222,29 +229,31 @@ class TestClinicalTrialService:
         # Setup mocks
         mock_db_adapter.get_patient.return_value = sample_patient
         mock_db_adapter.get_transcript.return_value = sample_transcript
-        mock_clinical_trials_adapter.find_recommended_clinical_trials.return_value = sample_trials
+        mock_clinical_trials_adapter.find_recommended_clinical_trials = AsyncMock(return_value=sample_trials)
         mock_llm_adapter.call_llm_json.return_value = {"eligible_trial_ids": [], "uncertain_trial_ids": []}
         
         # Call the method
-        result = clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
+        result = await clinical_trial_service.find_recommended_trials("patient-123", "transcript-456")
         
         # Verify results - should return empty lists
         assert result == {"eligible_trials": [], "uncertain_trials": []}
     
-    def test_get_clinical_trial(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_get_clinical_trial(self, clinical_trial_service: ClinicalTrialService,
                                mock_clinical_trials_adapter: Mock, sample_trials: List[ClinicalTrial]) -> None:
         """Test get_clinical_trial method"""
         # Setup mock
-        mock_clinical_trials_adapter.get_clinical_trial.return_value = sample_trials[0]
+        mock_clinical_trials_adapter.get_clinical_trial = AsyncMock(return_value=sample_trials[0])
         
         # Call the method
-        result = clinical_trial_service.get_clinical_trial("NCT12345678")
+        result = await clinical_trial_service.get_clinical_trial("NCT12345678")
         
         # Verify results
         assert result.external_id == "NCT12345678"
-        mock_clinical_trials_adapter.get_clinical_trial.assert_called_once_with("NCT12345678")
+        mock_clinical_trials_adapter.get_clinical_trial.assert_awaited_once_with("NCT12345678")
     
-    def test_eligibility_filter_agent(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_eligibility_filter_agent(self, clinical_trial_service: ClinicalTrialService,
                                     mock_llm_adapter: Mock, sample_patient: Patient,
                                     sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
         """Test the eligibility filter agent"""
@@ -255,7 +264,7 @@ class TestClinicalTrialService:
         }
         
         # Call the method
-        result = clinical_trial_service._eligibility_filter_agent(sample_patient, sample_transcript, sample_trials)
+        result = await clinical_trial_service._eligibility_filter_agent(sample_patient, sample_transcript, sample_trials)
         
         # Verify results
         assert result == {
@@ -264,7 +273,8 @@ class TestClinicalTrialService:
         }
         mock_llm_adapter.call_llm_json.assert_called_once()
     
-    def test_relevance_ranking_agent(self, clinical_trial_service: ClinicalTrialService,
+    @pytest.mark.asyncio
+    async def test_relevance_ranking_agent(self, clinical_trial_service: ClinicalTrialService,
                                    mock_llm_adapter: Mock, sample_patient: Patient,
                                    sample_transcript: ParsedTranscript, sample_trials: List[ClinicalTrial]) -> None:
         """Test the relevance ranking agent"""
@@ -276,7 +286,7 @@ class TestClinicalTrialService:
         eligible_trial_ids = ["NCT12345678", "NCT87654321"]
         
         # Call the method
-        result = clinical_trial_service._relevance_ranking_agent(sample_patient, sample_transcript, sample_trials, eligible_trial_ids, "eligible")
+        result = await clinical_trial_service._relevance_ranking_agent(sample_patient, sample_transcript, sample_trials, eligible_trial_ids, "eligible")
         
         # Verify results
         assert result == ["NCT87654321", "NCT12345678"]

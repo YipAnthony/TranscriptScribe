@@ -11,13 +11,11 @@
 - clinical_trial
 ### Ports
 - LLM
-- Transcript Analyzer
 - DB
 - ClinicalTrials
 
 ### Adapter
 - LLM: Gemini 2.0 flash
-- Transcript Analyzer: CrewAI
 - DB: Supabase (postgres)
 - Clinical Trails: clinicaltrails.gov api
 
@@ -37,14 +35,11 @@ backend/
 │
 ├── ports/                   # Interface definitions
 │   ├── llm.py                  # Interface for all LLM integration
-│   ├── transcript_analyzer.py  # Interface for analyzing raw appointment transcripts
 │   ├── db.py                   # Interface for db operations
 │   ├── clinical_trials.py      # Interface for accessing clinical trails info
 ├── adapters/                # External service implementations
 │   ├── llm/
 │   │   └── gemini.py              # Implemented via gemini 2.0 flash (bc cheap)
-│   ├── transcript_analyzer/
-│   │   └── crewai.py              # Implemented via crewai module
 │   ├── db/
 │   │   └── supabase.py            # Implemented via supabase
 │   ├── clinical_trials/
@@ -61,11 +56,6 @@ backend/
 ├── routes/                  # API routes
 │   └── api_router.py
 │
-├── main.py
-├── pyproject.toml              # Poetry configuration
-├── poetry.lock                 # Poetry lock file
-├── env.example                 # Environment variables template
-│
 ├── tests/                     # Unit tests (fast, mocked)
 │   ├── core/
 │   ├── adapters/
@@ -73,7 +63,16 @@ backend/
 │
 ├── live_tests/                # Live tests (require external services)
 │   ├── test_llm_gemini_live.py    # Live Gemini API tests
-│   └── test_supabase_live.py      # Live Supabase tests
+│   ├── test_supabase_live.py      # Live Supabase tests
+│   ├── test_clinical_trial_service_live.py  # Live clinical trial service tests
+│   └── test_transcript_service_live.py      # Live transcript service tests
+│
+├── main.py
+├── dependencies.py              # Dependency injection setup
+├── run_transcript_service_test.py  # Standalone transcript service test
+├── pyproject.toml              # Poetry configuration
+├── poetry.lock                 # Poetry lock file
+├── env.example                 # Environment variables template
 ```
 
 ## Setup Instructions
@@ -173,7 +172,9 @@ tests/
 
 live_tests/
 ├── test_llm_gemini_live.py  # Real Gemini API tests
-└── test_supabase_live.py    # Real Supabase tests
+├── test_supabase_live.py    # Real Supabase tests
+├── test_clinical_trial_service_live.py  # Live clinical trial service tests
+└── test_transcript_service_live.py      # Live transcript service tests
 ```
 
 ### Testing Best Practices
@@ -195,5 +196,6 @@ This backend follows a clean architecture pattern with clear separation of conce
 - **Handlers**: Handle HTTP requests and coordinate between layers
 
 ### Future Nice To Haves
-- Event queue integration.
+- Event queue integration
+- Break down current LLM calls into more fine tuned agents (maybe consider crewai)
 - Emit new_recommended_trails event, have some event handler forwarding to a messaging service for patients.

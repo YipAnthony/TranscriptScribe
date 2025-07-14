@@ -47,12 +47,18 @@ async def lifespan(app: FastAPI):
         # Test database connectivity
         try:
             logger.info("Testing database connectivity...")
-            # Test a simple operation - try to get a non-existent transcript
-            db_adapter.get_transcript("test-connection")
+            # Test a simple operation - try to get a non-existent transcript with proper UUID
+            import uuid
+            test_uuid = str(uuid.uuid4())
+            db_adapter.get_transcript(test_uuid)
             logger.info("Database connection successful")
         except Exception as e:
-            logger.error(f"Database connection failed: {e}")
-            raise RuntimeError(f"Failed to connect to database: {e}")
+            # If it's a "not found" error, that's expected and means connection works
+            if "not found" in str(e).lower() or "does not exist" in str(e).lower():
+                logger.info("Database connection successful")
+            else:
+                logger.error(f"Database connection failed: {e}")
+                raise RuntimeError(f"Failed to connect to database: {e}")
         
         clinical_trials_adapter = CTGV2_0_4Adapter()
         

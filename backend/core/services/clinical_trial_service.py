@@ -17,7 +17,7 @@ class ClinicalTrialService:
         self.clinical_trials_adapter = clinical_trials_adapter
         self.llm_adapter = llm_adapter
     
-    def find_recommended_trials(self, patient_id: str, transcript_id: str) -> Dict[str, List[ClinicalTrial]]:
+    async def find_recommended_trials(self, patient_id: str, transcript_id: str) -> Dict[str, List[ClinicalTrial]]:
         """
         Find recommended clinical trials based on patient profile and appointment transcript.
         Uses a multi-agent approach with specialized agents for eligibility filtering and relevance ranking.
@@ -40,7 +40,7 @@ class ClinicalTrialService:
         
         # 2. Get initial list of clinical trials
         logger.info("Searching for initial clinical trials")
-        initial_trials = self.clinical_trials_adapter.find_recommended_clinical_trials(patient, parsed_transcript)
+        initial_trials = await self.clinical_trials_adapter.find_recommended_clinical_trials(patient, parsed_transcript)
         logger.info(f"Found {len(initial_trials)} initial clinical trials")
         
         if not initial_trials:
@@ -49,7 +49,7 @@ class ClinicalTrialService:
         
         # 3. Agent 1: Eligibility Filter Agent - Separate eligible and uncertain trials
         logger.info("Agent 1: Filtering trials by eligibility criteria")
-        eligibility_result = self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
+        eligibility_result = await self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
         eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
         uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
         logger.info(f"Eligibility filter: {len(eligible_trial_ids)} eligible, {len(uncertain_trial_ids)} uncertain")
@@ -58,14 +58,14 @@ class ClinicalTrialService:
         ranked_eligible_trial_ids = []
         if eligible_trial_ids:
             logger.info("Agent 2: Ranking eligible trials by relevance")
-            ranked_eligible_trial_ids = self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids, "eligible")
+            ranked_eligible_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids, "eligible")
             logger.info(f"Relevance ranking (eligible): {len(ranked_eligible_trial_ids)} trials ranked")
         
         # 5. Agent 2: Relevance Ranking Agent - Rank uncertain trials by relevance
         ranked_uncertain_trial_ids = []
         if uncertain_trial_ids:
             logger.info("Agent 2: Ranking uncertain trials by relevance")
-            ranked_uncertain_trial_ids = self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
+            ranked_uncertain_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
             logger.info(f"Relevance ranking (uncertain): {len(ranked_uncertain_trial_ids)} trials ranked")
         
         # 6. Restructure response to include ranked trials in order
@@ -139,7 +139,7 @@ class ClinicalTrialService:
             """
         return patient_info
     
-    def _eligibility_filter_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial]) -> Dict[str, List[str]]:
+    async def _eligibility_filter_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial]) -> Dict[str, List[str]]:
         """
         Agent 1: Clinical Trials Administrator - Separates trials into eligible and uncertain categories.
         
@@ -225,7 +225,7 @@ class ClinicalTrialService:
             # Fallback: return empty lists if agent fails
             return {"eligible_trial_ids": [], "uncertain_trial_ids": []}
     
-    def _relevance_ranking_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial], trial_ids: list[str], category: str) -> list[str]:
+    async def _relevance_ranking_agent(self, patient: Patient, parsed_transcript: ParsedTranscript, trials: list[ClinicalTrial], trial_ids: list[str], category: str) -> list[str]:
         """
         Agent 2: Clinical Research Coordinator - Ranks trials by relevance and match quality.
         
@@ -309,7 +309,7 @@ IMPORTANT: Focus on clinical relevance and patient benefit. The patient should b
             # Fallback: return trials in original order
             return trial_ids
     
-    def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
+    async def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
         """
         Retrieves a specific clinical trial by ID from the clinical trials adapter.
         
@@ -322,4 +322,4 @@ IMPORTANT: Focus on clinical relevance and patient benefit. The patient should b
         Raises:
             TrialNotFoundError: If trial is not found
         """
-        return self.clinical_trials_adapter.get_clinical_trial(trial_id)
+        return await self.clinical_trials_adapter.get_clinical_trial(trial_id)
