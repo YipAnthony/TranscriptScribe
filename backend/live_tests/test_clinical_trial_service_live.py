@@ -55,7 +55,6 @@ async def test_clinical_trial_service_live():
         print("Testing with real clinical trials data...")
         test_patient = Patient(
             id="test-patient",
-            external_id="TEST-001",
             first_name="John",
             last_name="Doe",
             date_of_birth=date(1980, 1, 1),

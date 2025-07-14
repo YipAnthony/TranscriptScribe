@@ -10,8 +10,9 @@ from domain.address import Address
 from domain.patient import Patient
 from domain.clinical_trial import ClinicalTrial, Location
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class SupabaseAdapter(DatabasePort):
     def __init__(self):
@@ -20,32 +21,40 @@ class SupabaseAdapter(DatabasePort):
         supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         
         if not supabase_url or not supabase_key:
+            logger.error("❌ SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables must be set")
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables must be set")
         
+        logger.info("🔧 Initializing Supabase client...")
         self.client: Client = create_client(supabase_url, supabase_key)
-        logger.info("Supabase client initialized")
+        logger.info("✅ Supabase client initialized successfully")
     
     # Patient methods
     def get_patient(self, patient_id: str) -> Patient:
         """Get patient by ID"""
+        logger.debug(f"📋 Getting patient with ID: {patient_id}")
         try:
             result = self.client.table("patients").select("*, addresses(*)").eq("id", patient_id).execute()
             
             if result.data:
                 patient_data = result.data[0]
+                logger.debug(f"✅ Patient found: {patient_data.get('first_name', 'Unknown')} {patient_data.get('last_name', 'Unknown')}")
                 return self._dict_to_patient(patient_data)
             else:
+                logger.warning(f"⚠️ Patient with ID {patient_id} not found")
                 raise PatientNotFoundError(f"Patient with ID {patient_id} not found")
                 
         except PatientNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting patient {patient_id}: {e}")
+            logger.error(f"❌ Error getting patient {patient_id}: {e}", exc_info=True)
             raise
     
     # Transcript methods
     def create_transcript(self, patient_id: str, parsed_transcript: ParsedTranscript, recorded_at: Optional[str] = None) -> str:
         """Create a new transcript record"""
+        logger.info(f"💾 Creating transcript for patient {patient_id}")
+        logger.debug(f"📋 Transcript details - conditions: {len(parsed_transcript.conditions)}, medications: {len(parsed_transcript.medications)}")
+        
         try:
             # Flatten location fields
             location = parsed_transcript.location
@@ -76,30 +85,37 @@ class SupabaseAdapter(DatabasePort):
                 "negative_lifestyle_factors": parsed_transcript.negative_lifestyle_factors,
                 "extraction_notes": parsed_transcript.extraction_notes
             }
+            
+            logger.debug("🔄 Inserting transcript into database...")
             result = self.client.table("transcripts").insert(transcript_data).execute()
+            
             if result.data:
                 transcript_id = result.data[0]["id"]
-                logger.info(f"Created transcript with ID: {transcript_id}")
+                logger.info(f"✅ Created transcript with ID: {transcript_id}")
                 return transcript_id
             else:
+                logger.error("❌ Failed to create transcript - no data returned")
                 raise Exception("Failed to create transcript - no data returned")
         except Exception as e:
-            logger.error(f"Error creating transcript: {e}")
+            logger.error(f"❌ Error creating transcript: {e}", exc_info=True)
             raise
 
     def get_transcript(self, transcript_id: str) -> ParsedTranscript:
         """Get transcript by ID"""
+        logger.debug(f"📋 Getting transcript with ID: {transcript_id}")
         try:
             result = self.client.table("transcripts").select("*").eq("id", transcript_id).execute()
             if result.data:
                 transcript_data = result.data[0]
+                logger.debug(f"✅ Transcript found: {transcript_id}")
                 return self._row_to_parsed_transcript(transcript_data)
             else:
+                logger.warning(f"⚠️ Transcript with ID {transcript_id} not found")
                 raise TranscriptNotFoundError(f"Transcript with ID {transcript_id} not found")
         except TranscriptNotFoundError:
             raise
         except Exception as e:
-            logger.error(f"Error getting transcript {transcript_id}: {e}")
+            logger.error(f"❌ Error getting transcript {transcript_id}: {e}", exc_info=True)
             raise
     
     def update_transcript_status(self, transcript_id: str, status: str) -> None:
