@@ -7,9 +7,8 @@ from ports.clinical_trials import ClinicalTrialsPort
 from domain.patient import Patient
 from domain.parsed_transcript import ParsedTranscript
 from domain.clinical_trial import ClinicalTrial, SourceRegistry, Location, Intervention, Contact, Outcome
-from logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class CTGV2_0_4Adapter(ClinicalTrialsPort):
     """
@@ -32,7 +31,7 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         """
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=timeout)
-        logger.info(f"🔬 Initialized CTG API v{self.VERSION} adapter with timeout: {timeout}s")
+        logger.info(f"Initialized CTG API v{self.VERSION} adapter")
     
     async def __aenter__(self):
         """Async context manager entry"""
@@ -53,35 +52,26 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         Returns:
             List[ClinicalTrial]: List of recommended clinical trials
         """
-        logger.info(f"🔍 Finding recommended clinical trials for patient {patient.first_name} {patient.last_name}")
-        logger.debug(f"📋 Patient details - age: {patient.date_of_birth}, sex: {patient.sex}")
-        logger.debug(f"📋 Transcript summary - conditions: {len(parsed_transcript.conditions)}, medications: {len(parsed_transcript.medications)}")
-        
         try:
             # Build comprehensive OR-based search with all available filters
-            logger.debug("🔧 Building search parameters...")
             search_params = self._build_search_params(patient, parsed_transcript)
-            logger.debug(f"📋 Search parameters: {json.dumps(search_params, indent=2)}")
             
-            logger.info("🌐 Searching ClinicalTrials.gov API...")
             trials_data = await self._search_trials(search_params)
-            logger.info(f"✅ Received {len(trials_data)} trials from API")
             
             clinical_trials = []
-            for i, trial_data in enumerate(trials_data):
+            for trial_data in trials_data:
                 try:
-                    logger.debug(f"🔄 Transforming trial {i+1}/{len(trials_data)}: {trial_data.get('NCTId', 'Unknown')}")
                     clinical_trial = self._transform_to_clinical_trial(trial_data)
                     clinical_trials.append(clinical_trial)
                 except Exception as e:
-                    logger.error(f"❌ Error transforming trial data: {e}")
+                    logger.error(f"Error transforming trial data: {e}")
                     continue
             
-            logger.info(f"🎉 Successfully found {len(clinical_trials)} clinical trials")
+            logger.info(f"Found {len(clinical_trials)} clinical trials")
             return clinical_trials
             
         except Exception as e:
-            logger.error(f"❌ Error finding clinical trials: {e}", exc_info=True)
+            logger.error(f"Error finding clinical trials: {e}")
             return []
     
     async def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
@@ -97,8 +87,6 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         Raises:
             Exception: If trial is not found or API error occurs
         """
-        logger.info(f"🔍 Getting clinical trial details for NCT ID: {trial_id}")
-        
         try:
             # Search for specific trial by NCT ID
             search_params = {
@@ -112,19 +100,16 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                           "LastUpdatePostDate"]
             }
             
-            logger.debug("🌐 Searching ClinicalTrials.gov API for specific trial...")
             trials_data = await self._search_trials(search_params)
             
             if not trials_data:
-                logger.warning(f"⚠️ Clinical trial with NCT ID {trial_id} not found")
                 raise Exception(f"Clinical trial with NCT ID {trial_id} not found")
             
-            logger.info(f"✅ Found clinical trial: {trial_id}")
             # Return the first (and should be only) trial
             return self._transform_to_clinical_trial(trials_data[0])
             
         except Exception as e:
-            logger.error(f"❌ Error getting clinical trial {trial_id}: {e}", exc_info=True)
+            logger.error(f"Error getting clinical trial {trial_id}: {e}")
             raise
     
     def _build_search_params(self, patient: Patient, parsed_transcript: ParsedTranscript) -> Dict[str, Any]:

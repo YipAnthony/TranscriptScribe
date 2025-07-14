@@ -5,9 +5,8 @@ from typing import Dict, Any, Optional
 from google.generativeai import GenerativeModel, configure, GenerationConfig
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from ports.llm import LLMPort, LLMResponse
-from logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class GeminiAdapter(LLMPort):
     def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash-exp"):
@@ -19,13 +18,9 @@ class GeminiAdapter(LLMPort):
             model_name: Gemini model to use (defaults to gemini-2.0-flash-exp)
         """
         if not api_key:
-            logger.error("❌ Google AI API key is required but not provided")
             raise ValueError("Google AI API key is required. Pass api_key explicitly.")
-        
         self.api_key = api_key
         self.model_name = model_name
-        logger.info(f"🔧 Initializing Gemini adapter with model: {self.model_name}")
-        
         configure(api_key=self.api_key)
         
         # Initialize the model with safety settings
@@ -39,7 +34,7 @@ class GeminiAdapter(LLMPort):
             }
         )
         
-        logger.info(f"✅ Initialized Gemini adapter with model: {self.model_name}")
+        logger.info(f"Initialized Gemini adapter with model: {self.model_name}")
     
     def call_llm(self, prompt: str, **kwargs) -> LLMResponse:
         """
@@ -52,9 +47,6 @@ class GeminiAdapter(LLMPort):
         Returns:
             LLMResponse: Structured response with content and metadata
         """
-        logger.debug(f"🤖 Calling Gemini LLM (text mode) - prompt length: {len(prompt)}")
-        logger.debug(f"📋 LLM parameters: {kwargs}")
-        
         try:
             # Create generation config
             generation_config = GenerationConfig(
@@ -64,16 +56,11 @@ class GeminiAdapter(LLMPort):
                 max_output_tokens=kwargs.get("max_tokens", 2048),
             )
             
-            logger.debug(f"⚙️ Generation config: temperature={generation_config.temperature}, max_tokens={generation_config.max_output_tokens}")
-            
             # Generate response
-            logger.debug("🔄 Sending request to Gemini...")
             response = self.model.generate_content(
                 prompt,
                 generation_config=generation_config
             )
-            
-            logger.debug(f"✅ Received response from Gemini - finish_reason: {getattr(response, 'finish_reason', 'unknown')}")
             
             # Extract usage information if available
             usage = None
@@ -85,7 +72,6 @@ class GeminiAdapter(LLMPort):
                         "candidates_token_count": getattr(candidate.token_count, 'candidates_token_count', 0),
                         "total_token_count": getattr(candidate.token_count, 'total_token_count', 0),
                     }
-                    logger.debug(f"📊 Token usage: {usage}")
             
             # Extract metadata
             metadata = {
@@ -99,7 +85,6 @@ class GeminiAdapter(LLMPort):
                 if hasattr(candidate, 'safety_ratings'):
                     metadata["safety_ratings"] = candidate.safety_ratings
             
-            logger.info(f"✅ Gemini LLM call successful - response length: {len(response.text)}")
             return LLMResponse(
                 content=response.text,
                 metadata=metadata,
@@ -107,7 +92,7 @@ class GeminiAdapter(LLMPort):
             )
             
         except Exception as e:
-            logger.error(f"❌ Error calling Gemini LLM: {str(e)}", exc_info=True)
+            logger.error(f"Error calling Gemini LLM: {str(e)}")
             raise RuntimeError(f"Failed to call Gemini LLM: {str(e)}")
     
     def call_llm_json(self, prompt: str, **kwargs) -> Dict[str, Any]:
@@ -121,9 +106,6 @@ class GeminiAdapter(LLMPort):
         Returns:
             Dict[str, Any]: JSON response from LLM
         """
-        logger.debug(f"🤖 Calling Gemini LLM (JSON mode) - prompt length: {len(prompt)}")
-        logger.debug(f"📋 LLM parameters: {kwargs}")
-        
         try:
             # Add JSON formatting instruction to prompt
             json_prompt = f"{prompt}\n\nPlease respond with valid JSON only."
@@ -136,23 +118,16 @@ class GeminiAdapter(LLMPort):
                 max_output_tokens=kwargs.get("max_tokens", 2048),
             )
             
-            logger.debug(f"⚙️ Generation config: temperature={generation_config.temperature}, max_tokens={generation_config.max_output_tokens}")
-            
             # Generate response
-            logger.debug("🔄 Sending JSON request to Gemini...")
             response = self.model.generate_content(
                 json_prompt,
                 generation_config=generation_config
             )
             
-            logger.debug(f"✅ Received JSON response from Gemini - finish_reason: {getattr(response, 'finish_reason', 'unknown')}")
-            
             # Try to parse JSON from response
             try:
                 # Clean the response text to extract JSON
                 text = response.text.strip()
-                logger.debug(f"📋 Raw response text (first 200 chars): {text[:200]}...")
-                
                 # Remove markdown code blocks if present
                 if text.startswith("```json"):
                     text = text[7:]
@@ -160,18 +135,14 @@ class GeminiAdapter(LLMPort):
                     text = text[:-3]
                 text = text.strip()
                 
-                parsed_json = json.loads(text)
-                logger.info(f"✅ Successfully parsed JSON response with {len(parsed_json)} keys")
-                logger.debug(f"📋 JSON keys: {list(parsed_json.keys())}")
-                return parsed_json
-                
+                return json.loads(text)
             except json.JSONDecodeError as e:
-                logger.error(f"❌ Failed to parse JSON response: {str(e)}")
-                logger.error(f"📋 Raw response: {response.text}")
+                logger.error(f"Failed to parse JSON response: {str(e)}")
+                logger.error(f"Raw response: {response.text}")
                 raise RuntimeError(f"LLM response is not valid JSON: {str(e)}")
                 
         except Exception as e:
-            logger.error(f"❌ Error calling Gemini LLM for JSON: {str(e)}", exc_info=True)
+            logger.error(f"Error calling Gemini LLM for JSON: {str(e)}")
             raise RuntimeError(f"Failed to call Gemini LLM for JSON: {str(e)}")
     
     def health_check(self) -> bool:
@@ -181,7 +152,6 @@ class GeminiAdapter(LLMPort):
         Returns:
             bool: True if healthy, False otherwise
         """
-        logger.debug("🏥 Performing Gemini health check...")
         try:
             # Simple health check with a minimal prompt
             generation_config = GenerationConfig(max_output_tokens=10)
@@ -189,12 +159,7 @@ class GeminiAdapter(LLMPort):
                 "Hello",
                 generation_config=generation_config
             )
-            is_healthy = response.text is not None and len(response.text) > 0
-            if is_healthy:
-                logger.info("✅ Gemini health check passed")
-            else:
-                logger.warning("⚠️ Gemini health check failed - empty response")
-            return is_healthy
+            return response.text is not None and len(response.text) > 0
         except Exception as e:
-            logger.error(f"❌ Gemini health check failed: {str(e)}")
+            logger.error(f"Health check failed: {str(e)}")
             return False

@@ -8,16 +8,14 @@ from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
 from typing import Dict, List, Optional
 import json
 import logging
-from logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class ClinicalTrialService:
     def __init__(self, db_adapter: DatabasePort, clinical_trials_adapter: ClinicalTrialsPort, llm_adapter: LLMPort):
         self.db_adapter = db_adapter
         self.clinical_trials_adapter = clinical_trials_adapter
         self.llm_adapter = llm_adapter
-        logger.info("🔬 ClinicalTrialService initialized")
     
     async def create_recommended_trials(self, patient_id: str, transcript_id: str) -> None:
         """
@@ -33,114 +31,71 @@ class ClinicalTrialService:
             PatientNotFoundError: If patient is not found
             TranscriptNotFoundError: If transcript is not found
         """
-        logger.info(f"🔄 Creating recommended trials for patient {patient_id}, transcript {transcript_id}")
-        
         # 1. Get patient and transcript data from database
-        logger.info(f"📋 Fetching patient {patient_id} and transcript {transcript_id}")
-        try:
-            patient = self.db_adapter.get_patient(patient_id)
-            logger.info(f"✅ Patient retrieved: {patient.first_name} {patient.last_name}")
-        except Exception as e:
-            logger.error(f"❌ Failed to get patient {patient_id}: {e}", exc_info=True)
-            raise PatientNotFoundError(f"Patient {patient_id} not found") from e
-        
-        try:
-            parsed_transcript = self.db_adapter.get_transcript(transcript_id)
-            logger.info(f"✅ Transcript retrieved: {transcript_id}")
-            logger.debug(f"📊 Transcript summary - conditions: {len(parsed_transcript.conditions)}, medications: {len(parsed_transcript.medications)}")
-        except Exception as e:
-            logger.error(f"❌ Failed to get transcript {transcript_id}: {e}", exc_info=True)
-            raise TranscriptNotFoundError(f"Transcript {transcript_id} not found") from e
+        logger.info(f"Fetching patient {patient_id} and transcript {transcript_id}")
+        patient = self.db_adapter.get_patient(patient_id)
+        parsed_transcript = self.db_adapter.get_transcript(transcript_id)
         
         # 2. Get initial list of clinical trials
-        logger.info("🔍 Searching for initial clinical trials...")
-        try:
-            initial_trials = await self.clinical_trials_adapter.find_recommended_clinical_trials(patient, parsed_transcript)
-            logger.info(f"✅ Found {len(initial_trials)} initial clinical trials")
-            logger.debug(f"📋 Trial IDs: {[t.external_id for t in initial_trials[:5]]}{'...' if len(initial_trials) > 5 else ''}")
-        except Exception as e:
-            logger.error(f"❌ Failed to search for clinical trials: {e}", exc_info=True)
-            raise
+        logger.info("Searching for initial clinical trials")
+        initial_trials = await self.clinical_trials_adapter.find_recommended_clinical_trials(patient, parsed_transcript)
+        logger.info(f"Found {len(initial_trials)} initial clinical trials")
         
         if not initial_trials:
-            logger.warning("⚠️ No clinical trials found, storing empty recommendations")
+            logger.info("No clinical trials found, storing empty recommendations")
             # Store empty recommendations
             try:
                 existing_recommendations = self.db_adapter.get_transcript_recommendations(transcript_id)
                 if existing_recommendations:
                     self.db_adapter.update_transcript_recommendations(transcript_id, [], [])
-                    logger.info("✅ Updated existing transcript recommendations with empty lists")
                 else:
                     self.db_adapter.create_transcript_recommendations(transcript_id, [], [])
-                    logger.info("✅ Created new transcript recommendations with empty lists")
             except Exception as e:
-                logger.error(f"❌ Failed to store empty transcript recommendations: {e}", exc_info=True)
+                logger.error(f"Failed to store empty transcript recommendations: {e}")
             return
         
         # 3. Agent 1: Eligibility Filter Agent - Separate eligible and uncertain trials
-        logger.info("🤖 Agent 1: Filtering trials by eligibility criteria...")
-        try:
-            eligibility_result = await self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
-            eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
-            uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
-            logger.info(f"✅ Eligibility filter completed: {len(eligible_trial_ids)} eligible, {len(uncertain_trial_ids)} uncertain")
-            logger.debug(f"📋 Eligible trial IDs: {eligible_trial_ids[:5]}{'...' if len(eligible_trial_ids) > 5 else ''}")
-            logger.debug(f"📋 Uncertain trial IDs: {uncertain_trial_ids[:5]}{'...' if len(uncertain_trial_ids) > 5 else ''}")
-        except Exception as e:
-            logger.error(f"❌ Eligibility filter agent failed: {e}", exc_info=True)
-            raise
+        logger.info("Agent 1: Filtering trials by eligibility criteria")
+        eligibility_result = await self._eligibility_filter_agent(patient, parsed_transcript, initial_trials)
+        eligible_trial_ids = eligibility_result.get("eligible_trial_ids", [])
+        uncertain_trial_ids = eligibility_result.get("uncertain_trial_ids", [])
+        logger.info(f"Eligibility filter: {len(eligible_trial_ids)} eligible, {len(uncertain_trial_ids)} uncertain")
         
         # 4. Agent 2: Relevance Ranking Agent - Rank eligible trials by relevance
         ranked_eligible_trial_ids = []
         if eligible_trial_ids:
-            logger.info("🤖 Agent 2: Ranking eligible trials by relevance...")
-            try:
-                ranked_eligible_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids, "eligible")
-                logger.info(f"✅ Relevance ranking (eligible) completed: {len(ranked_eligible_trial_ids)} trials ranked")
-            except Exception as e:
-                logger.error(f"❌ Relevance ranking for eligible trials failed: {e}", exc_info=True)
-                # Continue with unranked eligible trials
-                ranked_eligible_trial_ids = eligible_trial_ids
+            logger.info("Agent 2: Ranking eligible trials by relevance")
+            ranked_eligible_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, eligible_trial_ids, "eligible")
+            logger.info(f"Relevance ranking (eligible): {len(ranked_eligible_trial_ids)} trials ranked")
         
         # 5. Agent 2: Relevance Ranking Agent - Rank uncertain trials by relevance
         ranked_uncertain_trial_ids = []
         if uncertain_trial_ids:
-            logger.info("🤖 Agent 2: Ranking uncertain trials by relevance...")
-            try:
-                ranked_uncertain_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
-                logger.info(f"✅ Relevance ranking (uncertain) completed: {len(ranked_uncertain_trial_ids)} trials ranked")
-            except Exception as e:
-                logger.error(f"❌ Relevance ranking for uncertain trials failed: {e}", exc_info=True)
-                # Continue with unranked uncertain trials
-                ranked_uncertain_trial_ids = uncertain_trial_ids
+            logger.info("Agent 2: Ranking uncertain trials by relevance")
+            ranked_uncertain_trial_ids = await self._relevance_ranking_agent(patient, parsed_transcript, initial_trials, uncertain_trial_ids, "uncertain")
+            logger.info(f"Relevance ranking (uncertain): {len(ranked_uncertain_trial_ids)} trials ranked")
         
         # 6. Store all trials in Supabase
-        logger.info("💾 Storing clinical trials in database...")
-        stored_count = 0
+        logger.info("Storing clinical trials in Supabase")
         for trial in initial_trials:
             try:
                 self.db_adapter.upsert_clinical_trial(trial)
-                stored_count += 1
             except Exception as e:
-                logger.error(f"❌ Failed to store trial {trial.external_id}: {e}")
-        logger.info(f"✅ Stored {stored_count}/{len(initial_trials)} clinical trials in database")
+                logger.error(f"Failed to store trial {trial.external_id}: {e}")
         
         # 7. Store transcript recommendations
-        logger.info("💾 Storing transcript recommendations...")
+        logger.info("Storing transcript recommendations")
         try:
             # Check if transcript recommendations already exist
             existing_recommendations = self.db_adapter.get_transcript_recommendations(transcript_id)
             if existing_recommendations:
                 self.db_adapter.update_transcript_recommendations(transcript_id, ranked_eligible_trial_ids, ranked_uncertain_trial_ids)
-                logger.info("✅ Updated existing transcript recommendations")
             else:
                 self.db_adapter.create_transcript_recommendations(transcript_id, ranked_eligible_trial_ids, ranked_uncertain_trial_ids)
-                logger.info("✅ Created new transcript recommendations")
         except Exception as e:
-            logger.error(f"❌ Failed to store transcript recommendations: {e}", exc_info=True)
-            raise
+            logger.error(f"Failed to store transcript recommendations: {e}")
         
-        logger.info(f"🎉 Successfully created recommendations: {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trial IDs")
+        logger.info(f"Successfully created recommendations: {len(ranked_eligible_trial_ids)} eligible and {len(ranked_uncertain_trial_ids)} uncertain trial IDs")
     
     def _create_comprehensive_patient_info(self, patient: Patient, parsed_transcript: ParsedTranscript) -> str:
         """

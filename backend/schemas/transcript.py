@@ -12,7 +12,6 @@ class TranscriptResponse(BaseModel):
     """Generic API response for transcript operations"""
     status: str
     error: Optional[str] = None
-    transcript_id: Optional[str] = None
 
 class TranscriptAnalysisRequest(BaseModel):
     """API request for analyzing a transcript (async)"""

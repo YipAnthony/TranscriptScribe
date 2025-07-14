@@ -158,7 +158,7 @@ class TestClinicalTrialService:
         mock_db_adapter.get_patient.side_effect = PatientNotFoundError("Patient not found")
         
         # Call the method and expect exception
-        with pytest.raises(PatientNotFoundError, match="Patient patient-123 not found"):
+        with pytest.raises(PatientNotFoundError, match="Patient not found"):
             await clinical_trial_service.create_recommended_trials("patient-123", "transcript-456")
     
     @pytest.mark.asyncio
@@ -170,7 +170,7 @@ class TestClinicalTrialService:
         mock_db_adapter.get_transcript.side_effect = TranscriptNotFoundError("Transcript not found")
         
         # Call the method and expect exception
-        with pytest.raises(TranscriptNotFoundError, match="Transcript transcript-456 not found"):
+        with pytest.raises(TranscriptNotFoundError, match="Transcript not found"):
             await clinical_trial_service.create_recommended_trials("patient-123", "transcript-456")
     
     @pytest.mark.asyncio

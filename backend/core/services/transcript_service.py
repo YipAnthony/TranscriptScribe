@@ -4,9 +4,8 @@ from ports.db import DatabasePort
 from ports.llm import LLMPort
 from domain.parsed_transcript import ParsedTranscript
 from domain.exceptions import TranscriptNotFoundError
-from logging_config import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 class TranscriptService:
     def __init__(self, 
@@ -14,7 +13,6 @@ class TranscriptService:
                  llm_adapter: LLMPort):
         self.db_adapter = db_adapter
         self.llm_adapter = llm_adapter
-        logger.info("📝 TranscriptService initialized")
     
     def process_raw_transcript(self, patient_id: str, raw_transcript: Union[str, dict], recorded_at: Optional[str] = None) -> str:
         """
@@ -29,28 +27,26 @@ class TranscriptService:
             str: The created transcript ID
         """
         try:
-            logger.info(f"🔄 Processing transcript for patient {patient_id}")
-            logger.debug(f"📋 Transcript details - length: {len(str(raw_transcript))}, recorded_at: {recorded_at}")
+            logger.info(f"Processing transcript for patient {patient_id}")
             
             # Analyze transcript using LLM adapter
-            logger.info("🧠 Starting transcript analysis with LLM adapter...")
+            logger.info("Starting transcript analysis with LLM adapter...")
             parsed_transcript = self._analyze_transcript_with_llm(raw_transcript)
-            logger.info(f"✅ Transcript analysis completed successfully")
-            logger.debug(f"📊 Parsed data summary - conditions: {len(parsed_transcript.conditions)}, medications: {len(parsed_transcript.medications)}, procedures: {len(parsed_transcript.procedures)}")
+            logger.info(f"Transcript analysis completed: {parsed_transcript}")
             
             # Create transcript record in database with parsed data
-            logger.info("💾 Storing transcript to database...")
+            logger.info("Storing transcript to database...")
             transcript_id = self.db_adapter.create_transcript(
                 patient_id=patient_id,
                 parsed_transcript=parsed_transcript,
                 recorded_at=recorded_at
             )
             
-            logger.info(f"🎉 Transcript processed successfully with ID: {transcript_id}")
+            logger.info(f"Transcript processed successfully with ID: {transcript_id}")
             return transcript_id
             
         except Exception as e:
-            logger.error(f"❌ Error processing transcript for patient {patient_id}: {e}", exc_info=True)
+            logger.error(f"Error processing transcript for patient {patient_id}: {e}")
             raise e
     
     def _analyze_transcript_with_llm(self, raw_transcript: Union[str, dict]) -> ParsedTranscript:
@@ -65,43 +61,24 @@ class TranscriptService:
         """
         import json
         
-        logger.debug("🔄 Starting LLM analysis...")
-        
         # Convert dict to string if needed
         if isinstance(raw_transcript, dict):
-            logger.debug("🔄 Converting dict transcript to string...")
             raw_transcript = json.dumps(raw_transcript, indent=2)
         
         # Create analysis prompt (business logic)
-        logger.debug("📝 Creating analysis prompt...")
         prompt = self._create_analysis_prompt(raw_transcript)
-        logger.debug(f"📝 Prompt created, length: {len(prompt)}")
         
         # Use LLM adapter for the actual API call
-        logger.info("🤖 Calling LLM for transcript analysis...")
-        try:
-            response = self.llm_adapter.call_llm_json(
-                prompt=prompt,
-                temperature=0.1,  # Low temperature for consistent parsing
-                max_tokens=4096  # Increased for comprehensive analysis
-            )
-            logger.info("✅ LLM response received successfully")
-            logger.debug(f"📊 LLM response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
-        except Exception as e:
-            logger.error(f"❌ LLM call failed: {e}", exc_info=True)
-            raise
+        response = self.llm_adapter.call_llm_json(
+            prompt=prompt,
+            temperature=0.1,  # Low temperature for consistent parsing
+            max_tokens=4096  # Increased for comprehensive analysis
+        )
         
         # Parse the response into ParsedTranscript (business logic)
-        logger.debug("🔍 Parsing LLM response...")
-        try:
-            parsed_transcript = self._parse_llm_response(response)
-            logger.info("✅ LLM response parsed successfully")
-        except Exception as e:
-            logger.error(f"❌ Failed to parse LLM response: {e}", exc_info=True)
-            logger.error(f"📋 Raw LLM response: {response}")
-            raise
+        parsed_transcript = self._parse_llm_response(response)
         
-        logger.info(f"🎯 Successfully analyzed transcript")
+        logger.info(f"Successfully analyzed transcript: {parsed_transcript}")
         return parsed_transcript
     
     def _create_analysis_prompt(self, raw_transcript: str) -> str:
