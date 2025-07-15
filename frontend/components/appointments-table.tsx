@@ -23,6 +23,7 @@ import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask } from "@tabler
 import { apiClient } from '@/lib/api-client'
 import { ViewAppointmentDialog } from "@/components/view-appointment-dialog"
 import { ViewRecommendedTrialsDialog } from "@/components/view-recommended-trials-dialog"
+import { toast } from "sonner"
 
 interface Appointment {
   id: string
@@ -74,6 +75,7 @@ export function AppointmentsTable({
     } catch (err) {
       console.error('Error fetching appointments:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch appointments')
+      toast.error('Failed to fetch appointments. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -87,6 +89,7 @@ export function AppointmentsTable({
     } catch (err) {
       console.error('Error fetching saved trials:', err)
       setSavedTrials(new Set())
+      toast.error('Failed to fetch saved trials. Please try again.')
     }
   }
 
@@ -101,12 +104,15 @@ export function AppointmentsTable({
           newSet.delete(trialId)
           return newSet
         })
+        toast.success('Removed clinical trial from your saved list.')
       } else {
         await apiClient.saveTrial(patientId, trialId)
         setSavedTrials(prev => new Set([...prev, trialId]))
+        toast.success('Added clinical trial to your saved list.')
       }
     } catch (err) {
       console.error('Error toggling saved trial:', err)
+      toast.error('Failed to update saved trials. Please try again.')
     } finally {
       setSavingTrial(null)
     }

@@ -16,6 +16,7 @@ import { IconLoader2, IconFlask, IconStar, IconMapPin, IconCalendar, IconExterna
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { ClinicalTrial, ClinicalTrialDetails, TranscriptRecommendations } from "@/types"
+import { toast } from "sonner"
 
 interface ViewRecommendedTrialsDialogProps {
     appointmentId: string | null
@@ -211,7 +212,7 @@ export function ViewRecommendedTrialsDialog({
 
   const handleSuggestTrial = async (trial: ClinicalTrial) => {
     if (!resolvedPatientId) {
-      alert('Patient ID is required to suggest a trial')
+      toast.error('Patient ID is required to suggest a trial')
       return
     }
 
@@ -220,15 +221,15 @@ export function ViewRecommendedTrialsDialog({
       const result = await apiClient.suggestTrial(resolvedPatientId, trial.id, `Recommended from appointment ${appointmentId} - ${trial.brief_title}`)
       if (result.error) {
         console.error('Error suggesting trial:', result.error)
-        alert('Failed to suggest trial. Please try again.')
+        toast.error('Failed to suggest trial. Please try again.')
       } else {
         // Refresh recommended trials list
         await fetchRecommendedTrials()
-        alert('Trial suggested successfully!')
+        toast.success(`Recommended trial to ${patientName}`)
       }
     } catch (err) {
       console.error('Error suggesting trial:', err)
-      alert('Failed to suggest trial. Please try again.')
+      toast.error('Failed to suggest trial. Please try again.')
     } finally {
       setSuggestingTrial(null)
     }
@@ -248,7 +249,7 @@ export function ViewRecommendedTrialsDialog({
 
   const handleSuggestTrialSubmit = async () => {
     if (!resolvedPatientId || !selectedTrialForSuggestion) {
-      alert('Patient ID and trial are required to suggest a trial')
+      toast.error('Patient ID and trial are required to suggest a trial')
       return
     }
 
@@ -270,7 +271,7 @@ export function ViewRecommendedTrialsDialog({
             clinicalTrialId = trialData.id
           } else {
             console.error('Error finding clinical trial:', 'Trial not found in local arrays or database')
-            alert('Failed to find clinical trial. Please try again.')
+            toast.error('Failed to find clinical trial. Please try again.')
             return
           }
         }
@@ -279,7 +280,7 @@ export function ViewRecommendedTrialsDialog({
       const result = await apiClient.suggestTrial(resolvedPatientId, clinicalTrialId, suggestionNotes.trim() || null)
       if (result.error) {
         console.error('Error suggesting trial:', result.error)
-        alert('Failed to suggest trial. Please try again.')
+        toast.error('Failed to suggest trial. Please try again.')
       } else {
         // Refresh recommended trials list
         await fetchRecommendedTrials()
@@ -287,11 +288,11 @@ export function ViewRecommendedTrialsDialog({
         setSuggestionNotes("")
         setSelectedTrialForSuggestion(null)
         setViewMode('details')
-        alert('Trial suggested successfully!')
+        toast.success(`Recommended trial to ${patientName}`)
       }
     } catch (err) {
       console.error('Error suggesting trial:', err)
-      alert('Failed to suggest trial. Please try again.')
+      toast.error('Failed to suggest trial. Please try again.')
     } finally {
       setSuggestingTrial(null)
     }

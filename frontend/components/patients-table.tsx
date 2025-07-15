@@ -22,6 +22,7 @@ import { IconDots, IconEye, IconEdit, IconTrash, IconFileText, IconLoader2 } fro
 import { apiClient } from '@/lib/api-client'
 import { EditPatientDialog } from "./edit-patient-dialog"
 import type { Patient } from "@/types"
+import { toast } from "sonner"
 
 interface PatientsTableProps {
   refreshKey?: number
@@ -46,6 +47,7 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
     } catch (err) {
       console.error('Error fetching patients:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch patients')
+      toast.error('Failed to fetch patients. Please try again.')
     } finally {
       setLoading(false)
     }

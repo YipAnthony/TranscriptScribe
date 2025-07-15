@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
 import { apiClient } from "@/lib/api-client"
 import type { Patient } from "@/types"
+import { toast } from "sonner"
 
 interface AddAppointmentDialogProps {
   onAppointmentAdded: () => void
@@ -95,7 +96,7 @@ Dr. Smith: Thank you for sharing that. Let me examine you and then we'll discuss
 
   const handleSubmit = async () => {
     if (!selectedPatient) {
-      alert('Please select a patient')
+      toast.error('Please select a patient')
       return
     }
 
@@ -103,7 +104,7 @@ Dr. Smith: Thank you for sharing that. Let me examine you and then we'll discuss
     const conversationToUse = activeTab === 'manual' ? conversationText : generatedConversation
     
     if (!conversationToUse.trim()) {
-      alert('Please provide conversation text')
+      toast.error('Please provide conversation text')
       return
     }
 
@@ -142,6 +143,7 @@ Dr. Smith: Thank you for sharing that. Let me examine you and then we'll discuss
 
       setOpen(false)
       onAppointmentAdded()
+      toast.success('Appointment created successfully!')
       
       // Reset form
       setSelectedPatient("")
@@ -154,7 +156,7 @@ Dr. Smith: Thank you for sharing that. Let me examine you and then we'll discuss
       setActiveTab("manual")
     } catch (err) {
       console.error('Error creating appointment:', err)
-      alert(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      toast.error(`Failed to create appointment: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setCreatingAppointment(false)
     }

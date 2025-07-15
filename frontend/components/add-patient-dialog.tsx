@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
 import { apiClient } from '@/lib/api-client'
+import { toast } from "sonner"
 
 interface AddPatientDialogProps {
   onPatientAdded: () => void
@@ -43,11 +44,13 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
     try {
       // Validate required fields
       if (!formData.first_name || !formData.last_name) {
+        toast.error("First Name and Last Name are required")
         throw new Error("First Name and Last Name are required")
       }
 
       // Validate state field (must be exactly 2 letters if provided)
       if (formData.state && (formData.state.length !== 2 || !/^[A-Za-z]{2}$/.test(formData.state))) {
+        toast.error("State must be exactly 2 letters (e.g., NY, CA)")
         throw new Error("State must be exactly 2 letters (e.g., NY, CA)")
       }
 
@@ -64,9 +67,10 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
       })
       setOpen(false)
       onPatientAdded()
+      toast.success('Patient added successfully!')
     } catch (err) {
       console.error('Error adding patient:', err)
-      setError(err instanceof Error ? err.message : 'Failed to add patient')
+      toast.error(err instanceof Error ? err.message : 'Failed to add patient')
     } finally {
       setLoading(false)
     }
