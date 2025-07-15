@@ -8,6 +8,7 @@ import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 import uuid
+from fastapi import HTTPException
 
 from handlers.transcript import TranscriptHandler
 from handlers.clinical_trial import ClinicalTrialHandler
@@ -215,20 +216,24 @@ class TestTranscriptFlowIntegration:
     async def test_clinical_trial_details_integration(self, handlers, mock_adapters):
         """Test clinical trial details retrieval flow through handlers"""
         _, clinical_trial_handler = handlers
-        mock_ctg = mock_adapters[2]
-        
-        # Create request
-        request = GetClinicalTrialRequest(trial_id="NCT12345678")
-        
+        mock_llm, mock_db, mock_ctg = mock_adapters
+
+        # Mock db to return a trial with external_id for internal id (sync)
+        mock_db.get_clinical_trial.return_value = mock_ctg.get_clinical_trial.return_value
+
+        # Create request with internal id
+        request = GetClinicalTrialRequest(trial_id="internal-uuid-123")
+
         # Process through handler
         response = await clinical_trial_handler.handle_get_clinical_trial(request)
-        
+
         # Verify response structure
         assert isinstance(response, GetClinicalTrialResponse)
         assert response.status == "success"
         assert "successfully" in response.message
-        
-        # Verify adapter was called
+
+        # Verify db and adapter were called
+        mock_db.get_clinical_trial.assert_called_once_with("internal-uuid-123")
         mock_ctg.get_clinical_trial.assert_awaited_once_with("NCT12345678")
     
     def test_error_propagation_integration(self, handlers, mock_adapters):
@@ -246,12 +251,11 @@ class TestTranscriptFlowIntegration:
             recorded_at=datetime.now()
         )
         
-        # Process through handler
-        response = transcript_handler.process_transcript(request)
-        
-        # Verify error is properly handled
-        assert response.status == "error"
-        assert "LLM API error" in response.error
+        # Process through handler and expect HTTPException
+        with pytest.raises(HTTPException) as exc_info:
+            transcript_handler.process_transcript(request)
+        assert exc_info.value.status_code == 400
+        assert "LLM API error" in str(exc_info.value.detail)
     
     @pytest.mark.asyncio
     async def test_service_layer_integration(self, services, mock_adapters):

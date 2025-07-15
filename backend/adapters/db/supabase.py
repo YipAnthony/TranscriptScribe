@@ -290,17 +290,17 @@ class SupabaseAdapter(DatabasePort):
             logger.error(f"Error upserting clinical trial: {e}")
             raise
     
-    def get_clinical_trial(self, external_id: str) -> Optional[ClinicalTrial]:
+    def get_clinical_trial(self, trial_id: str) -> Optional[ClinicalTrial]:
         """Get clinical trial by external ID"""
         try:
-            result = self.client.table("clinical_trials").select("*").eq("external_id", external_id).execute()
+            result = self.client.table("clinical_trials").select("*").eq("id", trial_id).execute()
             if result.data:
                 trial_data = result.data[0]
                 return self._row_to_clinical_trial(trial_data)
             else:
                 return None
         except Exception as e:
-            logger.error(f"Error getting clinical trial {external_id}: {e}")
+            logger.error(f"Error getting clinical trial {trial_id}: {e}")
             raise
     
     def upsert_clinical_trials(self, clinical_trials: List[ClinicalTrial]) -> int:

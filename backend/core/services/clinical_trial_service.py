@@ -4,7 +4,7 @@ from domain.clinical_trial import ClinicalTrial
 from ports.db import DatabasePort
 from ports.clinical_trials import ClinicalTrialsPort
 from ports.llm import LLMPort
-from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
+from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError, TrialNotFoundError
 from typing import Dict, List, Optional
 import json
 import logging
@@ -327,14 +327,9 @@ IMPORTANT: Focus on clinical relevance and patient benefit. The patient should b
     async def get_clinical_trial(self, trial_id: str) -> ClinicalTrial:
         """
         Retrieves a specific clinical trial by ID from the clinical trials adapter.
-        
-        Args:
-            trial_id: ID of the clinical trial
-            
-        Returns:
-            ClinicalTrial: The clinical trial details
-            
-        Raises:
-            TrialNotFoundError: If trial is not found
         """
-        return await self.clinical_trials_adapter.get_clinical_trial(trial_id)
+        trial = self.db_adapter.get_clinical_trial(trial_id)
+        if not trial:
+            raise TrialNotFoundError(f"Trial with id {trial_id} not found")
+        external_id = trial.external_id
+        return await self.clinical_trials_adapter.get_clinical_trial(external_id)

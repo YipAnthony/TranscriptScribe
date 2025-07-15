@@ -104,4 +104,11 @@ export interface TranscriptRecommendations {
   eligible_trials: string[]
   uncertain_trials: string[]
   created_at: string
+}
+
+// Matches backend GetClinicalTrialResponse
+export interface GetClinicalTrialResponse {
+  status: string;
+  message: string;
+  trial: ClinicalTrialDetails | null;
 } 

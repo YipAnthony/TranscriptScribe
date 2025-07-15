@@ -181,9 +181,14 @@ export function ViewRecommendedTrialsDialog({
       if (dialogContent) {
         setScrollPosition(dialogContent.scrollTop)
       }
-      // Fetch trial details
-      const details = await apiClient.getClinicalTrialDetails(trialId)
-      setSelectedTrialDetails(details)
+      // Fetch trial details from backend API
+      const details = await apiClient.getClinicalTrial(trialId)
+      if (details.error) {
+        console.error('Error fetching trial details:', details.error)
+        toast.error('Error fetching trial details')
+        return
+      }
+      setSelectedTrialDetails(details.trial)
       setViewMode('details')
     } catch (err) {
       console.error('Error fetching trial details:', err)

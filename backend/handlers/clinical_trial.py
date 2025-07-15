@@ -8,6 +8,7 @@ from schemas.clinical_trial import (
 from core.services.clinical_trial_service import ClinicalTrialService
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError, TrialNotFoundError
 from domain.clinical_trial import ClinicalTrial
+from fastapi import HTTPException
 
 class ClinicalTrialHandler:
     def __init__(self, trial_service: ClinicalTrialService):
@@ -32,13 +33,10 @@ class ClinicalTrialHandler:
             
         except (PatientNotFoundError, TranscriptNotFoundError) as e:
             # Return error message for not found errors
-            return CreateClinicalTrialRecommendationsResponse(
-                status="error",
-                message=f"Patient or transcript not found: {str(e)}"
-            )
+            raise HTTPException(status_code=404, detail=f"Patient or transcript not found: {str(e)}")
         except Exception as e:
             # Re-raise other exceptions to be handled by the API layer
-            raise e
+            raise HTTPException(status_code=400, detail=str(e))
     
     async def handle_get_clinical_trial(self, request: GetClinicalTrialRequest) -> GetClinicalTrialResponse:
         """
@@ -91,11 +89,7 @@ class ClinicalTrialHandler:
             
         except TrialNotFoundError as e:
             # Return error message for not found errors
-            return GetClinicalTrialResponse(
-                status="error",
-                message=f"Trial not found: {str(e)}",
-                trial=None
-            )
+            raise HTTPException(status_code=404, detail=f"Trial not found: {str(e)}")
         except Exception as e:
             # Re-raise other exceptions to be handled by the API layer
-            raise e 
+            raise HTTPException(status_code=400, detail=str(e)) 

@@ -127,8 +127,6 @@ class DatabasePort(ABC):
         """
         pass
     
-
-    
     # Transcript Recommendations methods
     @abstractmethod
     def create_transcript_recommendations(self, transcript_id: str, eligible_trial_ids: List[str], uncertain_trial_ids: List[str]) -> str:

@@ -233,16 +233,19 @@ class TestClinicalTrialService:
     
     @pytest.mark.asyncio
     async def test_get_clinical_trial(self, clinical_trial_service: ClinicalTrialService,
-                               mock_clinical_trials_adapter: Mock, sample_trials: List[ClinicalTrial]) -> None:
-        """Test get_clinical_trial method"""
-        # Setup mock
+                               mock_db_adapter: Mock, mock_clinical_trials_adapter: Mock, sample_trials: List[ClinicalTrial]) -> None:
+        """Test get_clinical_trial method with internal id lookup"""
+        # Setup mock: db_adapter returns the trial for internal id (sync)
+        mock_db_adapter.get_clinical_trial.return_value = sample_trials[0]
+        # clinical_trials_adapter returns the trial for external_id (async)
         mock_clinical_trials_adapter.get_clinical_trial = AsyncMock(return_value=sample_trials[0])
-        
-        # Call the method
-        result = await clinical_trial_service.get_clinical_trial("NCT12345678")
-        
+
+        # Call the method with internal id
+        result = await clinical_trial_service.get_clinical_trial("internal-uuid-123")
+
         # Verify result
         assert result == sample_trials[0]
+        mock_db_adapter.get_clinical_trial.assert_called_once_with("internal-uuid-123")
         mock_clinical_trials_adapter.get_clinical_trial.assert_awaited_once_with("NCT12345678")
     
     @pytest.mark.asyncio

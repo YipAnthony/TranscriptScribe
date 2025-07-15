@@ -1,5 +1,6 @@
 from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
 from core.services.transcript_service import TranscriptService
+from fastapi import HTTPException
 
 class TranscriptHandler:
     def __init__(self, transcript_service: TranscriptService):
@@ -17,4 +18,4 @@ class TranscriptHandler:
             )
             return TranscriptResponse(status="success", error=None, transcript_id=transcript_id)
         except Exception as e:
-            return TranscriptResponse(status="error", error=str(e), transcript_id=None) 
+            raise HTTPException(status_code=400, detail=str(e)) 

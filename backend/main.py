@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from contextlib import asynccontextmanager
+from fastapi.responses import JSONResponse
 
 # Import dependencies module
 from dependencies import set_dependencies
@@ -147,9 +148,9 @@ async def root():
 async def global_exception_handler(request, exc):
     """Global exception handler for unhandled errors"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return HTTPException(
+    return JSONResponse(
         status_code=500,
-        detail="Internal server error"
+        content={"detail": "Internal server error"}
     )
 
 if __name__ == "__main__":

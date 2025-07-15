@@ -51,6 +51,7 @@ import {
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { Patient, ClinicalTrial, ClinicalTrialDetails } from "@/types"
+import { toast } from "sonner"
 
 interface SavedTrial {
   id: string
@@ -77,7 +78,6 @@ export default function PatientTrialsPage() {
   const [providerRecommendations, setProviderRecommendations] = useState<ProviderRecommendedTrial[]>([])
   const [acceptedRecommendations, setAcceptedRecommendations] = useState<ProviderRecommendedTrial[]>([])
   const [rejectedRecommendations, setRejectedRecommendations] = useState<ProviderRecommendedTrial[]>([])
-  const [providerSuggestions, setProviderSuggestions] = useState<ClinicalTrial[]>([])
   const [loading, setLoading] = useState(true)
   const [trialsLoading, setTrialsLoading] = useState(false)
   const [selectedTrial, setSelectedTrial] = useState<ClinicalTrial | null>(null)
@@ -124,13 +124,11 @@ export default function PatientTrialsPage() {
         providerRecommendations,
         acceptedRecommendations,
         rejectedRecommendations,
-        providerSuggestions
       } = await apiClient.getPatientTrials(patientId)
       setSavedTrials(savedTrials)
       setProviderRecommendations(providerRecommendations)
       setAcceptedRecommendations(acceptedRecommendations)
       setRejectedRecommendations(rejectedRecommendations)
-      setProviderSuggestions(providerSuggestions)
     } catch (err) {
       console.error('Error fetching patient trials:', err)
     } finally {
@@ -262,17 +260,19 @@ export default function PatientTrialsPage() {
       
       if (response.error) {
         console.error('Error fetching trial details:', response.error)
+        toast.error('Error fetching trial details')
         return
       }
       
-      if (response.data?.trial) {
-        setSelectedTrialDetails(response.data.trial)
+      if (response.trial) {
+        setSelectedTrialDetails(response.trial)
         setShowAllLocations(false)
         setShowFullSummary(false)
         setShowFullDescription(false)
       }
     } catch (err) {
       console.error('Error fetching trial details:', err)
+      toast.error('Error fetching trial details')
     } finally {
       // Remove trial ID from loading set
       setLoadingTrialDetails(prev => {

@@ -6,7 +6,7 @@ import type { Patient } from '../types'
 import type { Transcript } from '../types'
 import type { TranscriptRecommendations } from '../types'
 import type { ClinicalTrial } from '../types'
-import type { ClinicalTrialDetails } from '../types'
+import type { ClinicalTrialDetails, GetClinicalTrialResponse } from '@/types'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -92,8 +92,9 @@ class ApiClient {
     })
   }
 
-  async getClinicalTrial(trialId: string): Promise<ApiResponse> {
-    return this.request(`/api/v1/clinical-trials/${trialId}`)
+  async getClinicalTrial(trialId: string): Promise<{ trial: ClinicalTrialDetails | null, error?: string }> {
+    const response = await this.request<GetClinicalTrialResponse>(`/api/v1/clinical-trials/${trialId}`)
+    return { trial: response.data?.trial || null, error: response.error || undefined }
   }
 
   // PATIENTS
@@ -513,27 +514,6 @@ class ApiClient {
       .in('status', ['pending', 'accepted'])
     if (error) throw error
     return new Set(data?.map(item => item.clinical_trial_id) || [])
-  }
-
-  async getClinicalTrialDetails(trialId: string): Promise<ClinicalTrialDetails | null> {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('clinical_trials')
-      .select('*')
-      .eq('id', trialId)
-      .single()
-    if (error) throw error
-    if (!data) return null
-    return {
-      ...data,
-      phases: Array.isArray(data.phases) ? data.phases : [],
-      primary_outcomes: Array.isArray(data.primary_outcomes) ? data.primary_outcomes : [],
-      secondary_outcomes: Array.isArray(data.secondary_outcomes) ? data.secondary_outcomes : [],
-      standard_ages: Array.isArray(data.standard_ages) ? data.standard_ages : [],
-      interventions: Array.isArray(data.interventions) ? data.interventions : [],
-      central_contacts: Array.isArray(data.central_contacts) ? data.central_contacts : [],
-      overall_officials: Array.isArray(data.overall_officials) ? data.overall_officials : [],
-    }
   }
 
   async getClinicalTrialById(externalId: string): Promise<ClinicalTrial | null> {

@@ -289,19 +289,36 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             
             # Sponsor information - try multiple sources
             sponsor_name = ""
-            lead_sponsor = sponsor_collaborators_module.get("leadSponsor", {})
-            if lead_sponsor:
-                sponsor_name = lead_sponsor.get("name", "")
+            # First, try sponsorModule.leadSponsor.leadSponsorName (test data and some API responses)
+            sponsor_module = protocol_section.get("sponsorModule", {})
+            lead_sponsor_mod = sponsor_module.get("leadSponsor", {})
+            if lead_sponsor_mod:
+                sponsor_name = lead_sponsor_mod.get("leadSponsorName", "")
+            # If not found, try sponsorCollaboratorsModule.leadSponsor.name (some API responses)
+            if not sponsor_name:
+                sponsor_collaborators_module = protocol_section.get("sponsorCollaboratorsModule", {})
+                lead_sponsor = sponsor_collaborators_module.get("leadSponsor", {})
+                if lead_sponsor:
+                    sponsor_name = lead_sponsor.get("name", "")
             
             # Conditions
             conditions = conditions_module.get("conditions", [])
             
-            # Phases from design module
+            # Phases from design module and armsInterventionsModule
             phases = []
+            # 1. designModule.phases (API response)
             phases_data = design_module.get("phases", [])
             for phase in phases_data:
                 if phase and phase != "NA":
                     phases.append(phase)
+            # 2. armsInterventionsModule.phaseInfo (test data and some API responses)
+            phase_info_data = arms_interventions_module.get("phaseInfo", [])
+            for phase_info in phase_info_data:
+                phase_val = phase_info.get("phase")
+                if phase_val and phase_val != "NA":
+                    phases.append(phase_val)
+            # Deduplicate
+            phases = list(dict.fromkeys(phases))
             
             # Age information
             minimum_age = eligibility_module.get("minimumAge", "")
@@ -406,7 +423,11 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             # Detailed information
             detailed_description = description_module.get("detailedDescription", "")
             study_type = design_module.get("studyType", "")
+            if not study_type:
+                study_type = status_module.get("studyType", "")
             primary_purpose = design_module.get("primaryPurpose", "")
+            if not primary_purpose:
+                primary_purpose = status_module.get("primaryPurpose", "")
             
             # Eligibility
             eligibility_criteria = eligibility_module.get("eligibilityCriteria", "")
@@ -420,6 +441,8 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                 else:
                     healthy_volunteers = bool(healthy_volunteers_raw)
             standard_ages = eligibility_module.get("stdAges", [])
+            if not standard_ages:
+                standard_ages = eligibility_module.get("standardAges", [])
             
             # Outcomes
             primary_outcomes = []
