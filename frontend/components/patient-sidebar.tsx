@@ -3,9 +3,12 @@
 import * as React from "react"
 import {
   IconUsers,
-  IconCalendar,
+  IconFileText,
+  IconChartBar,
   IconLogout,
   IconHome,
+  IconUser,
+  IconCalendar,
 } from "@tabler/icons-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter, usePathname } from "next/navigation"
@@ -19,25 +22,20 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const adminNavItems = [
-  {
-    title: "Dashboard",
-    url: "/admin",
-    icon: IconHome,
-  },
-  {
-    title: "Patients",
-    url: "/admin/patients",
-    icon: IconUsers,
-  },
+const patientNavItems = [
   {
     title: "Appointments",
-    url: "/admin/appointments",
+    url: "/patient/appointments",
     icon: IconCalendar,
+  },
+  {
+    title: "Clinical Trials",
+    url: "/patient/trials",
+    icon: IconChartBar,
   },
 ]
 
-export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -58,7 +56,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
             >
               <a href="/">
                 <IconHome className="!size-5" />
-                <span className="text-base font-semibold">TranscriptScribe Admin</span>
+                <span className="text-base font-semibold">TranscriptScribe Patient</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -66,7 +64,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
       </SidebarHeader>
       <SidebarContent className="px-4">
         <SidebarMenu>
-          {adminNavItems.map((item) => (
+          {patientNavItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild isActive={pathname.startsWith(item.url)}>
                 <a href={item.url}>
@@ -91,7 +89,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           <div className="p-4 border-t">
             <div className="text-sm text-gray-600">
               <div className="font-medium">{user.email}</div>
-              <div className="text-xs">Admin User</div>
+              <div className="text-xs">Patient Portal</div>
             </div>
           </div>
         )}

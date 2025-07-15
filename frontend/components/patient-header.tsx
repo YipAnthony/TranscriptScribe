@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useAuth } from "@/lib/auth-context"
 
-export function AdminHeader() {
+export function PatientHeader() {
   const { user } = useAuth()
 
   return (

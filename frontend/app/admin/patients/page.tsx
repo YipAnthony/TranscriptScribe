@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { IconUsers, IconSearch, IconRefresh } from "@tabler/icons-react"
+import { IconUsers, IconRefresh } from "@tabler/icons-react"
 import { PatientsTable } from "@/components/patients-table"
 import { AddPatientDialog } from "@/components/add-patient-dialog"
 import { createClient } from "@/lib/supabase/client"
@@ -78,16 +77,6 @@ export default function PatientsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-2 mb-4">
-            <div className="relative flex-1 max-w-sm">
-              <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search patients..."
-                className="pl-8"
-              />
-            </div>
-            <Button variant="outline">Filter</Button>
-          </div>
           <PatientsTable refreshKey={refreshKey} />
         </CardContent>
       </Card>

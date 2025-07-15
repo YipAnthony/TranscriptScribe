@@ -37,9 +37,17 @@ interface Appointment {
 
 interface AppointmentsTableProps {
   refreshKey?: number
+  patientId?: string
+  showPatientColumn?: boolean
+  isPatientView?: boolean
 }
 
-export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
+export function AppointmentsTable({ 
+  refreshKey = 0, 
+  patientId, 
+  showPatientColumn = true,
+  isPatientView = false 
+}: AppointmentsTableProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,25 +55,37 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [selectedTrialsAppointmentId, setSelectedTrialsAppointmentId] = useState<string | null>(null)
   const [viewTrialsDialogOpen, setViewTrialsDialogOpen] = useState(false)
+  const [savedTrials, setSavedTrials] = useState<Set<string>>(new Set())
+  const [savingTrial, setSavingTrial] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     fetchAppointments()
-  }, [refreshKey])
+    if (isPatientView && patientId) {
+      fetchSavedTrials()
+    }
+  }, [refreshKey, patientId, isPatientView])
 
   const fetchAppointments = async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Fetch transcripts (appointments) with patient names and clinical trial counts
-      const { data: transcriptsData, error: transcriptsError } = await supabase
+      // Build the query
+      let query = supabase
         .from('transcripts')
         .select(`
           *,
           patients:patient_id(first_name, last_name)
         `)
         .order('created_at', { ascending: false })
+
+      // Filter by patient ID if provided
+      if (patientId) {
+        query = query.eq('patient_id', patientId)
+      }
+
+      const { data: transcriptsData, error: transcriptsError } = await query
 
       if (transcriptsError) {
         throw transcriptsError
@@ -114,6 +134,71 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
       setError(err instanceof Error ? err.message : 'Failed to fetch appointments')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSavedTrials = async () => {
+    if (!patientId) return
+
+    try {
+      const { data, error } = await supabase
+        .from('patient_saved_trials')
+        .select('clinical_trial_id')
+        .eq('patient_id', patientId)
+
+      if (error) {
+        console.error('Error fetching saved trials:', error)
+      } else {
+        const savedTrialIds = new Set(data?.map(item => item.clinical_trial_id) || [])
+        setSavedTrials(savedTrialIds)
+      }
+    } catch (err) {
+      console.error('Error fetching saved trials:', err)
+    }
+  }
+
+  const handleSaveTrial = async (trialId: string) => {
+    if (!patientId) return
+
+    setSavingTrial(trialId)
+    try {
+      if (savedTrials.has(trialId)) {
+        // Remove from saved trials
+        const { error } = await supabase
+          .from('patient_saved_trials')
+          .delete()
+          .eq('patient_id', patientId)
+          .eq('clinical_trial_id', trialId)
+
+        if (error) {
+          console.error('Error removing saved trial:', error)
+        } else {
+          setSavedTrials(prev => {
+            const newSet = new Set(prev)
+            newSet.delete(trialId)
+            return newSet
+          })
+        }
+      } else {
+        // Add to saved trials
+        const { error } = await supabase
+          .from('patient_saved_trials')
+          .insert({
+            patient_id: patientId,
+            clinical_trial_id: trialId,
+            created_at: new Date().toISOString()
+          })
+
+        if (error) {
+          console.error('Error saving trial:', error)
+        } else {
+          setSavedTrials(prev => new Set([...prev, trialId]))
+        }
+      }
+    } catch (err) {
+      console.error('Error toggling saved trial:', err)
+    } finally {
+      setSavingTrial(null)
     }
   }
 
@@ -202,7 +287,7 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Patient</TableHead>
+              {showPatientColumn && <TableHead>Patient</TableHead>}
               <TableHead>Appointment Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Clinical Trials</TableHead>
@@ -213,9 +298,11 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
           <TableBody>
             {appointments.map((appointment) => (
               <TableRow key={appointment.id}>
-                <TableCell className="font-medium">
-                  {appointment.patient_name}
-                </TableCell>
+                {showPatientColumn && (
+                  <TableCell className="font-medium">
+                    {appointment.patient_name}
+                  </TableCell>
+                )}
                 <TableCell>{formatDateTime(appointment.recorded_at)}</TableCell>
                 <TableCell>{getStatusBadge(appointment.status)}</TableCell>
                 <TableCell>
@@ -261,6 +348,8 @@ export function AppointmentsTable({ refreshKey = 0 }: AppointmentsTableProps) {
         appointmentId={selectedTrialsAppointmentId}
         open={viewTrialsDialogOpen}
         onOpenChange={setViewTrialsDialogOpen}
+        patientId={patientId}
+        isPatientView={isPatientView}
       />
     </>
   )
