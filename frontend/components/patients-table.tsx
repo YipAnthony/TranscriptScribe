@@ -18,9 +18,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
 import { IconDots, IconEye, IconEdit, IconTrash, IconFileText, IconLoader2 } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 import { EditPatientDialog } from "./edit-patient-dialog"
 import type { Patient } from "@/types"
 
@@ -33,7 +32,6 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchPatients()
@@ -43,27 +41,8 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
     try {
       setLoading(true)
       setError(null)
-
-      // Fetch patients with transcript count
-      const { data: patientsData, error: patientsError } = await supabase
-        .from('patients')
-        .select(`
-          *,
-          transcripts:transcripts(count)
-        `)
-        .order('created_at', { ascending: false })
-
-      if (patientsError) {
-        throw patientsError
-      }
-
-      // Transform the data to include transcript count
-      const transformedPatients = patientsData?.map(patient => ({
-        ...patient,
-        transcript_count: patient.transcripts?.[0]?.count || 0
-      })) || []
-
-      setPatients(transformedPatients)
+      const patientsData = await apiClient.getPatients()
+      setPatients(patientsData)
     } catch (err) {
       console.error('Error fetching patients:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch patients')

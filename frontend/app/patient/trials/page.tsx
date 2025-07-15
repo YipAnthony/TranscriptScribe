@@ -36,25 +36,18 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { 
   IconUser, 
-  IconFileText, 
-  IconChartBar, 
   IconLoader2,
   IconBookmark,
   IconStar,
-  IconExternalLink,
-  IconBell,
   IconEye,
   IconCheck,
-  IconCalendar,
   IconStethoscope,
   IconMapPin,
-  IconArrowLeft,
   IconTrash,
   IconDots,
   IconChevronDown,
   IconChevronRight
 } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { Patient, ClinicalTrial, ClinicalTrialDetails } from "@/types"
@@ -97,7 +90,6 @@ export default function PatientTrialsPage() {
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
   const [showRejectedRecommendations, setShowRejectedRecommendations] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchPatients()
@@ -112,18 +104,10 @@ export default function PatientTrialsPage() {
   const fetchPatients = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching patients:', error)
-      } else {
-        setPatients(data || [])
-        if (data && data.length > 0) {
-          setSelectedPatient(data[0])
-        }
+      const data = await apiClient.getPatientsWithTrials()
+      setPatients(data)
+      if (data && data.length > 0) {
+        setSelectedPatient(data[0])
       }
     } catch (err) {
       console.error('Error fetching patients:', err)
@@ -135,119 +119,18 @@ export default function PatientTrialsPage() {
   const fetchPatientTrials = async (patientId: string) => {
     try {
       setTrialsLoading(true)
-      
-      // Fetch saved trials for the patient
-      const { data: savedTrialsData, error: savedError } = await supabase
-        .from('patient_saved_trials')
-        .select(`
-          *,
-          trial:clinical_trials(*)
-        `)
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false })
-
-      if (savedError) {
-        console.error('Error fetching saved trials:', savedError)
-      } else {
-        setSavedTrials(savedTrialsData || [])
-      }
-
-      // Fetch provider recommendations for the patient (only pending status)
-      const { data: providerRecommendationsData, error: providerRecommendationsError } = await supabase
-        .from('provider_recommended_trials')
-        .select(`
-          *,
-          trial:clinical_trials(*)
-        `)
-        .eq('patient_id', patientId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-
-      if (providerRecommendationsError) {
-        console.error('Error fetching provider recommendations:', providerRecommendationsError)
-      } else {
-        setProviderRecommendations(providerRecommendationsData || [])
-      }
-
-      // Fetch accepted recommendations for the patient
-      const { data: acceptedRecommendationsData, error: acceptedRecommendationsError } = await supabase
-        .from('provider_recommended_trials')
-        .select(`
-          *,
-          trial:clinical_trials(*)
-        `)
-        .eq('patient_id', patientId)
-        .eq('status', 'accepted')
-        .order('created_at', { ascending: false })
-
-      if (acceptedRecommendationsError) {
-        console.error('Error fetching accepted recommendations:', acceptedRecommendationsError)
-      } else {
-        setAcceptedRecommendations(acceptedRecommendationsData || [])
-      }
-
-      // Fetch rejected recommendations for the patient
-      const { data: rejectedRecommendationsData, error: rejectedRecommendationsError } = await supabase
-        .from('provider_recommended_trials')
-        .select(`
-          *,
-          trial:clinical_trials(*)
-        `)
-        .eq('patient_id', patientId)
-        .eq('status', 'rejected')
-        .order('created_at', { ascending: false })
-
-      if (rejectedRecommendationsError) {
-        console.error('Error fetching rejected recommendations:', rejectedRecommendationsError)
-      } else {
-        setRejectedRecommendations(rejectedRecommendationsData || [])
-      }
-
-      // Fetch provider suggestions (from transcript recommendations)
-      const { data: transcriptsData, error: transcriptsError } = await supabase
-        .from('transcripts')
-        .select('id')
-        .eq('patient_id', patientId)
-
-      if (transcriptsError) {
-        console.error('Error fetching transcripts:', transcriptsError)
-      } else {
-        const transcriptIds = transcriptsData?.map(t => t.id) || []
-        
-        if (transcriptIds.length > 0) {
-          const { data: recommendationsData, error: recommendationsError } = await supabase
-            .from('transcript_recommendations')
-            .select('*')
-            .in('transcript_id', transcriptIds)
-
-          if (recommendationsError) {
-            console.error('Error fetching recommendations:', recommendationsError)
-          } else {
-            // Get all recommended trial IDs
-            const allRecommendedTrialIds = recommendationsData?.flatMap(rec => [
-              ...(rec.eligible_trials || []),
-              ...(rec.uncertain_trials || [])
-            ]) || []
-
-            // Remove duplicates
-            const uniqueTrialIds = [...new Set(allRecommendedTrialIds)]
-
-            if (uniqueTrialIds.length > 0) {
-              const { data: trialsData, error: trialsError } = await supabase
-                .from('clinical_trials')
-                .select('*')
-                .in('id', uniqueTrialIds)
-
-              if (trialsError) {
-                console.error('Error fetching provider trials:', trialsError)
-              } else {
-                setProviderSuggestions(trialsData || [])
-              }
-            }
-          }
-        }
-      }
-
+      const {
+        savedTrials,
+        providerRecommendations,
+        acceptedRecommendations,
+        rejectedRecommendations,
+        providerSuggestions
+      } = await apiClient.getPatientTrials(patientId)
+      setSavedTrials(savedTrials)
+      setProviderRecommendations(providerRecommendations)
+      setAcceptedRecommendations(acceptedRecommendations)
+      setRejectedRecommendations(rejectedRecommendations)
+      setProviderSuggestions(providerSuggestions)
     } catch (err) {
       console.error('Error fetching patient trials:', err)
     } finally {
@@ -257,35 +140,8 @@ export default function PatientTrialsPage() {
 
   const handleSaveTrial = async (trialId: string, recommendationId?: string) => {
     if (!selectedPatient) return
-
     try {
-      // First, save the trial to patient_saved_trials
-      const { error: saveError } = await supabase
-        .from('patient_saved_trials')
-        .insert({
-          patient_id: selectedPatient.id,
-          clinical_trial_id: trialId,
-          created_at: new Date().toISOString()
-        })
-
-      if (saveError) {
-        console.error('Error saving trial:', saveError)
-        return
-      }
-
-      // If this was from a provider recommendation, update its status to 'accepted'
-      if (recommendationId) {
-        const { error: updateError } = await supabase
-          .from('provider_recommended_trials')
-          .update({ status: 'accepted' })
-          .eq('id', recommendationId)
-
-        if (updateError) {
-          console.error('Error updating recommendation status:', updateError)
-        }
-      }
-
-      // Refresh the data
+      await apiClient.saveTrialWithRecommendation(selectedPatient.id, trialId, recommendationId)
       fetchPatientTrials(selectedPatient.id)
     } catch (err) {
       console.error('Error saving trial:', err)
@@ -294,19 +150,9 @@ export default function PatientTrialsPage() {
 
   const handleRemoveTrial = async (savedTrialId: string) => {
     if (!selectedPatient) return
-
     try {
-      const { error } = await supabase
-        .from('patient_saved_trials')
-        .delete()
-        .eq('id', savedTrialId)
-
-      if (error) {
-        console.error('Error removing trial:', error)
-      } else {
-        // Refresh the data
-        fetchPatientTrials(selectedPatient.id)
-      }
+      await apiClient.removeSavedTrialById(savedTrialId)
+      fetchPatientTrials(selectedPatient.id)
     } catch (err) {
       console.error('Error removing trial:', err)
     }
@@ -314,19 +160,9 @@ export default function PatientTrialsPage() {
 
   const handleRejectRecommendation = async (recommendationId: string) => {
     if (!selectedPatient) return
-
     try {
-      const { error } = await supabase
-        .from('provider_recommended_trials')
-        .update({ status: 'rejected' })
-        .eq('id', recommendationId)
-
-      if (error) {
-        console.error('Error rejecting recommendation:', error)
-      } else {
-        // Refresh the data
-        fetchPatientTrials(selectedPatient.id)
-      }
+      await apiClient.rejectRecommendation(recommendationId)
+      fetchPatientTrials(selectedPatient.id)
     } catch (err) {
       console.error('Error rejecting recommendation:', err)
     }
@@ -334,42 +170,8 @@ export default function PatientTrialsPage() {
 
   const handleRejectSavedTrial = async (savedTrialId: string) => {
     if (!selectedPatient) return
-
     try {
-      // First, remove from saved trials
-      const { error: removeError } = await supabase
-        .from('patient_saved_trials')
-        .delete()
-        .eq('id', savedTrialId)
-
-      if (removeError) {
-        console.error('Error removing saved trial:', removeError)
-        return
-      }
-
-      // Then, add to rejected recommendations if it was originally a provider recommendation
-      // We need to find if this trial was originally recommended by a provider
-      const { data: recommendationData, error: recommendationError } = await supabase
-        .from('provider_recommended_trials')
-        .select('id')
-        .eq('patient_id', selectedPatient.id)
-        .eq('clinical_trial_id', savedTrialId)
-        .eq('status', 'accepted')
-        .single()
-
-      if (!recommendationError && recommendationData) {
-        // Update the existing recommendation to rejected status
-        const { error: updateError } = await supabase
-          .from('provider_recommended_trials')
-          .update({ status: 'rejected' })
-          .eq('id', recommendationData.id)
-
-        if (updateError) {
-          console.error('Error updating recommendation status:', updateError)
-        }
-      }
-
-      // Refresh the data
+      await apiClient.rejectSavedTrial(savedTrialId, selectedPatient.id)
       fetchPatientTrials(selectedPatient.id)
     } catch (err) {
       console.error('Error rejecting saved trial:', err)
@@ -484,32 +286,7 @@ export default function PatientTrialsPage() {
   const handleAcceptAndSaveRejected = async (recommendation: ProviderRecommendedTrial) => {
     if (!selectedPatient) return
     try {
-      // Update provider recommendation status to 'accepted'
-      const { error: updateError } = await supabase
-        .from('provider_recommended_trials')
-        .update({ status: 'accepted' })
-        .eq('id', recommendation.id)
-
-      if (updateError) {
-        console.error('Error updating recommendation status:', updateError)
-        return
-      }
-
-      // Try to insert into patient_saved_trials, but ignore duplicate errors
-      const { error: insertError } = await supabase
-        .from('patient_saved_trials')
-        .insert({
-          patient_id: selectedPatient.id,
-          clinical_trial_id: recommendation.trial.id,
-          created_at: new Date().toISOString(),
-        })
-
-      if (insertError && insertError.code !== '23505') { // 23505 = unique violation
-        console.error('Error saving trial:', insertError)
-        return
-      }
-
-      // Refresh data
+      await apiClient.acceptAndSaveRejected(recommendation)
       fetchPatientTrials(selectedPatient.id)
     } catch (err) {
       console.error('Error accepting and saving rejected trial:', err)

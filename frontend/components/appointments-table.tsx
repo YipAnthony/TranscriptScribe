@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 import { ViewAppointmentDialog } from "@/components/view-appointment-dialog"
 import { ViewRecommendedTrialsDialog } from "@/components/view-recommended-trials-dialog"
 
@@ -57,7 +57,6 @@ export function AppointmentsTable({
   const [viewTrialsDialogOpen, setViewTrialsDialogOpen] = useState(false)
   const [savedTrials, setSavedTrials] = useState<Set<string>>(new Set())
   const [savingTrial, setSavingTrial] = useState<string | null>(null)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchAppointments()
@@ -70,65 +69,8 @@ export function AppointmentsTable({
     try {
       setLoading(true)
       setError(null)
-
-      // Build the query
-      let query = supabase
-        .from('transcripts')
-        .select(`
-          *,
-          patients:patient_id(first_name, last_name)
-        `)
-        .order('created_at', { ascending: false })
-
-      // Filter by patient ID if provided
-      if (patientId) {
-        query = query.eq('patient_id', patientId)
-      }
-
-      const { data: transcriptsData, error: transcriptsError } = await query
-
-      if (transcriptsError) {
-        throw transcriptsError
-      }
-
-      // Fetch transcript recommendations separately
-      const { data: recommendationsData, error: recommendationsError } = await supabase
-        .from('transcript_recommendations')
-        .select('*')
-
-      if (recommendationsError) {
-        console.warn('Error fetching recommendations:', recommendationsError)
-      }
-
-      // Debug logging
-      console.log('Transcripts data:', transcriptsData)
-      console.log('Recommendations data:', recommendationsData)
-
-      // Transform the data to include patient names and clinical trial counts
-      const transformedAppointments = transcriptsData?.map(transcript => {
-        // Find recommendations for this transcript
-        const recommendations = recommendationsData?.find(rec => rec.transcript_id === transcript.id)
-        const eligibleCount = recommendations?.eligible_trials?.length || 0
-        const uncertainCount = recommendations?.uncertain_trials?.length || 0
-        const totalTrials = eligibleCount + uncertainCount
-
-        console.log(`Transcript ${transcript.id}:`, {
-          recommendations: recommendations,
-          eligibleCount,
-          uncertainCount,
-          totalTrials
-        })
-
-        return {
-          ...transcript,
-          patient_name: transcript.patients 
-            ? `${transcript.patients.first_name} ${transcript.patients.last_name}`
-            : 'Unknown Patient',
-          clinical_trials_count: totalTrials
-        }
-      }) || []
-
-      setAppointments(transformedAppointments)
+      const appointmentsData = await apiClient.getAppointments(patientId)
+      setAppointments(appointmentsData)
     } catch (err) {
       console.error('Error fetching appointments:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch appointments')
@@ -139,61 +81,29 @@ export function AppointmentsTable({
 
   const fetchSavedTrials = async () => {
     if (!patientId) return
-
     try {
-      const { data, error } = await supabase
-        .from('patient_saved_trials')
-        .select('clinical_trial_id')
-        .eq('patient_id', patientId)
-
-      if (error) {
-        console.error('Error fetching saved trials:', error)
-      } else {
-        const savedTrialIds = new Set(data?.map(item => item.clinical_trial_id) || [])
-        setSavedTrials(savedTrialIds)
-      }
+      const savedTrialIds = await apiClient.getSavedTrials(patientId)
+      setSavedTrials(new Set(savedTrialIds))
     } catch (err) {
       console.error('Error fetching saved trials:', err)
+      setSavedTrials(new Set())
     }
   }
 
   const handleSaveTrial = async (trialId: string) => {
     if (!patientId) return
-
     setSavingTrial(trialId)
     try {
       if (savedTrials.has(trialId)) {
-        // Remove from saved trials
-        const { error } = await supabase
-          .from('patient_saved_trials')
-          .delete()
-          .eq('patient_id', patientId)
-          .eq('clinical_trial_id', trialId)
-
-        if (error) {
-          console.error('Error removing saved trial:', error)
-        } else {
-          setSavedTrials(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(trialId)
-            return newSet
-          })
-        }
+        await apiClient.removeSavedTrial(patientId, trialId)
+        setSavedTrials(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(trialId)
+          return newSet
+        })
       } else {
-        // Add to saved trials
-        const { error } = await supabase
-          .from('patient_saved_trials')
-          .insert({
-            patient_id: patientId,
-            clinical_trial_id: trialId,
-            created_at: new Date().toISOString()
-          })
-
-        if (error) {
-          console.error('Error saving trial:', error)
-        } else {
-          setSavedTrials(prev => new Set([...prev, trialId]))
-        }
+        await apiClient.saveTrial(patientId, trialId)
+        setSavedTrials(prev => new Set([...prev, trialId]))
       }
     } catch (err) {
       console.error('Error toggling saved trial:', err)

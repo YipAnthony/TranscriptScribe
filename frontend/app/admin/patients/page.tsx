@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button"
 import { IconUsers, IconRefresh } from "@tabler/icons-react"
 import { PatientsTable } from "@/components/patients-table"
 import { AddPatientDialog } from "@/components/add-patient-dialog"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 
 export default function PatientsPage() {
   const [patientCount, setPatientCount] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchPatientCount()
@@ -21,15 +20,8 @@ export default function PatientsPage() {
   const fetchPatientCount = async () => {
     try {
       setLoading(true)
-      const { count, error } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true })
-
-      if (error) {
-        console.error('Error fetching patient count:', error)
-      } else {
-        setPatientCount(count || 0)
-      }
+      const count = await apiClient.getPatientCount()
+      setPatientCount(count)
     } catch (err) {
       console.error('Error fetching patient count:', err)
     } finally {

@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button"
 import { IconCalendar, IconRefresh } from "@tabler/icons-react"
 import { AppointmentsTable } from "@/components/appointments-table"
 import { AddAppointmentDialog } from "@/components/add-appointment-dialog"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 
 export default function AppointmentsPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [appointmentCount, setAppointmentCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchAppointmentCount()
@@ -21,15 +20,8 @@ export default function AppointmentsPage() {
   const fetchAppointmentCount = async () => {
     try {
       setLoading(true)
-      const { count, error } = await supabase
-        .from('transcripts')
-        .select('*', { count: 'exact', head: true })
-
-      if (error) {
-        console.error('Error fetching transcript count:', error)
-      } else {
-        setAppointmentCount(count || 0)
-      }
+      const count = await apiClient.getAppointmentCount()
+      setAppointmentCount(count)
     } catch (err) {
       console.error('Error fetching transcript count:', err)
     } finally {

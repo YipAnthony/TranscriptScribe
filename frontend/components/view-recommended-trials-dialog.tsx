@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Textarea } from "@/components/ui/textarea"
 import { IconLoader2, IconFlask, IconStar, IconMapPin, IconCalendar, IconExternalLink, IconUser, IconArrowLeft, IconBookmark, IconMessagePlus } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { ClinicalTrial, ClinicalTrialDetails, TranscriptRecommendations } from "@/types"
@@ -70,8 +69,6 @@ export function ViewRecommendedTrialsDialog({
   const [selectedTrialForSuggestion, setSelectedTrialForSuggestion] = useState<ClinicalTrial | null>(null)
   const [suggestionNotes, setSuggestionNotes] = useState("")
   
-  const supabase = createClient()
-
   useEffect(() => {
     if (open && appointmentId) {
       fetchRecommendations()
@@ -91,74 +88,31 @@ export function ViewRecommendedTrialsDialog({
 
   const fetchRecommendations = async () => {
     if (!appointmentId) return
-
     try {
       setLoading(true)
-      
       // Fetch transcript recommendations
-      const { data: recommendationsData, error: recommendationsError } = await supabase
-        .from('transcript_recommendations')
-        .select('*')
-        .eq('transcript_id', appointmentId)
-        .single()
-
-      if (recommendationsError && recommendationsError.code !== 'PGRST116') {
-        throw recommendationsError
+      const recommendationsData = await apiClient.getTranscriptRecommendations(appointmentId)
+      setRecommendations(recommendationsData)
+      // Fetch eligible trials
+      if (recommendationsData?.eligible_trials?.length) {
+        const eligibleData = await apiClient.getClinicalTrialsByIds(recommendationsData.eligible_trials)
+        setEligibleTrials(eligibleData)
       }
-
-      if (recommendationsData) {
-        setRecommendations(recommendationsData)
-        
-        // Fetch eligible trials
-        if (recommendationsData.eligible_trials && recommendationsData.eligible_trials.length > 0) {
-          const { data: eligibleData, error: eligibleError } = await supabase
-            .from('clinical_trials')
-            .select('*')
-            .in('id', recommendationsData.eligible_trials)
-          
-          if (!eligibleError && eligibleData) {
-            setEligibleTrials(eligibleData)
-          }
-        }
-        
-        // Fetch uncertain trials
-        if (recommendationsData.uncertain_trials && recommendationsData.uncertain_trials.length > 0) {
-          const { data: uncertainData, error: uncertainError } = await supabase
-            .from('clinical_trials')
-            .select('*')
-            .in('id', recommendationsData.uncertain_trials)
-          
-          if (!uncertainError && uncertainData) {
-            setUncertainTrials(uncertainData)
-          }
-        }
+      // Fetch uncertain trials
+      if (recommendationsData?.uncertain_trials?.length) {
+        const uncertainData = await apiClient.getClinicalTrialsByIds(recommendationsData.uncertain_trials)
+        setUncertainTrials(uncertainData)
       }
-
       // Fetch patient name and ID
-      const { data: transcriptData, error: transcriptError } = await supabase
-        .from('transcripts')
-        .select(`
-          patient_id,
-          patients:patient_id(first_name, last_name)
-        `)
-        .eq('id', appointmentId)
-        .single()
-
-      if (!transcriptError && transcriptData) {
-        // Set patient ID if not already provided
-        if (!patientId && transcriptData.patient_id) {
-          setResolvedPatientId(transcriptData.patient_id)
+      const patientInfo = await apiClient.getPatientNameByTranscript(appointmentId)
+      if (patientInfo) {
+        if (!patientId && patientInfo.patientId) {
+          setResolvedPatientId(patientInfo.patientId)
         }
-        
-        // Set patient name
-        if (transcriptData.patients && Array.isArray(transcriptData.patients) && transcriptData.patients.length > 0) {
-          const patient = transcriptData.patients[0] as { first_name: string; last_name: string }
-          if (patient.first_name && patient.last_name) {
-            setPatientName(`${patient.first_name} ${patient.last_name}`)
-          }
+        if (patientInfo.patientName) {
+          setPatientName(patientInfo.patientName)
         }
       }
-
     } catch (err) {
       console.error('Error fetching recommendations:', err)
     } finally {
@@ -168,83 +122,29 @@ export function ViewRecommendedTrialsDialog({
 
   const fetchSavedTrials = async () => {
     if (!resolvedPatientId) return
-
     try {
-      const { data, error } = await supabase
-        .from('patient_saved_trials')
-        .select('clinical_trial_id')
-        .eq('patient_id', resolvedPatientId)
-
-      if (error) {
-        console.error('Error fetching saved trials:', error)
-      } else {
-        const savedTrialIds = new Set(data?.map(item => item.clinical_trial_id) || [])
-        setSavedTrials(savedTrialIds)
-      }
+      const savedTrialIds = await apiClient.getSavedTrials(resolvedPatientId)
+      setSavedTrials(new Set(savedTrialIds))
     } catch (err) {
       console.error('Error fetching saved trials:', err)
-    }
-  }
-
-  const fetchRecommendedTrials = async () => {
-    if (!resolvedPatientId) return
-
-    try {
-      const { data, error } = await supabase
-        .from('provider_recommended_trials')
-        .select('clinical_trial_id')
-        .eq('patient_id', resolvedPatientId)
-        .in('status', ['pending', 'accepted'])
-
-      if (error) {
-        console.error('Error fetching recommended trials:', error)
-      } else {
-        const recommendedTrialIds = new Set(data?.map(item => item.clinical_trial_id) || [])
-        setRecommendedTrials(recommendedTrialIds)
-      }
-    } catch (err) {
-      console.error('Error fetching recommended trials:', err)
+      setSavedTrials(new Set())
     }
   }
 
   const handleSaveTrial = async (trialId: string) => {
     if (!resolvedPatientId) return
-
-    console.log('handleSaveTrial called with trialId:', trialId, 'type:', typeof trialId)
     setSavingTrial(trialId)
     try {
       if (savedTrials.has(trialId)) {
-        // Remove from saved trials
-        const { error } = await supabase
-          .from('patient_saved_trials')
-          .delete()
-          .eq('patient_id', resolvedPatientId)
-          .eq('clinical_trial_id', trialId)
-
-        if (error) {
-          console.error('Error removing saved trial:', error)
-        } else {
-          setSavedTrials(prev => {
-            const newSet = new Set(prev)
-            newSet.delete(trialId)
-            return newSet
-          })
-        }
+        await apiClient.removeSavedTrial(resolvedPatientId, trialId)
+        setSavedTrials(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(trialId)
+          return newSet
+        })
       } else {
-        // Add to saved trials
-        const { error } = await supabase
-          .from('patient_saved_trials')
-          .insert({
-            patient_id: resolvedPatientId,
-            clinical_trial_id: trialId,
-            created_at: new Date().toISOString()
-          })
-
-        if (error) {
-          console.error('Error saving trial:', error)
-        } else {
-          setSavedTrials(prev => new Set([...prev, trialId]))
-        }
+        await apiClient.saveTrial(resolvedPatientId, trialId)
+        setSavedTrials(prev => new Set([...prev, trialId]))
       }
     } catch (err) {
       console.error('Error toggling saved trial:', err)
@@ -253,11 +153,19 @@ export function ViewRecommendedTrialsDialog({
     }
   }
 
+  const fetchRecommendedTrials = async () => {
+    if (!resolvedPatientId) return
+    try {
+      const recommendedTrialIds = await apiClient.getRecommendedTrials(resolvedPatientId)
+      setRecommendedTrials(recommendedTrialIds)
+    } catch (err) {
+      console.error('Error fetching recommended trials:', err)
+    }
+  }
+
   const fetchTrialDetails = async (trialId: string) => {
     try {
-      // Add trial ID to loading set
       setLoadingTrialDetails(prev => new Set(prev).add(trialId))
-      
       // Capture current accordion state and scroll position
       const accordionElement = document.querySelector('[data-radix-accordion-item]')
       if (accordionElement) {
@@ -267,39 +175,18 @@ export function ViewRecommendedTrialsDialog({
           if (value) setPreservedAccordionValue(value)
         }
       }
-      
       // Capture scroll position
       const dialogContent = document.querySelector('[role="dialog"]')
       if (dialogContent) {
         setScrollPosition(dialogContent.scrollTop)
       }
-      
-      const response = await apiClient.getClinicalTrial(trialId)
-      
-      if (response.error) {
-        console.error('Error fetching trial details:', response.error)
-        return
-      }
-      
-      if (response.data?.trial) {
-        setSelectedTrialDetails(response.data.trial)
-        setViewMode('details')
-        setShowAllLocations(false)
-        setShowFullSummary(false)
-        setShowFullDescription(false)
-        
-        // Scroll details view to top after a brief delay to ensure DOM is ready
-        setTimeout(() => {
-          const dialogContent = document.querySelector('[role="dialog"]')
-          if (dialogContent) {
-            dialogContent.scrollTop = 0
-          }
-        }, 100)
-      }
+      // Fetch trial details
+      const details = await apiClient.getClinicalTrialDetails(trialId)
+      setSelectedTrialDetails(details)
+      setViewMode('details')
     } catch (err) {
       console.error('Error fetching trial details:', err)
     } finally {
-      // Remove trial ID from loading set
       setLoadingTrialDetails(prev => {
         const newSet = new Set(prev)
         newSet.delete(trialId)
@@ -330,16 +217,9 @@ export function ViewRecommendedTrialsDialog({
 
     setSuggestingTrial(trial.id)
     try {
-      const { error } = await supabase
-        .from('provider_recommended_trials')
-        .insert({
-          patient_id: resolvedPatientId,
-          clinical_trial_id: trial.id,
-          notes: `Recommended from appointment ${appointmentId} - ${trial.brief_title}`
-        })
-
-      if (error) {
-        console.error('Error suggesting trial:', error)
+      const result = await apiClient.suggestTrial(resolvedPatientId, trial.id, `Recommended from appointment ${appointmentId} - ${trial.brief_title}`)
+      if (result.error) {
+        console.error('Error suggesting trial:', result.error)
         alert('Failed to suggest trial. Please try again.')
       } else {
         // Refresh recommended trials list
@@ -385,31 +265,20 @@ export function ViewRecommendedTrialsDialog({
           clinicalTrialId = trial.id
         } else {
           // If we can't find the trial in our local arrays, we need to fetch it from the database
-          const { data: trialData, error: trialError } = await supabase
-            .from('clinical_trials')
-            .select('id')
-            .eq('external_id', selectedTrialForSuggestion.external_id)
-            .single()
-          
-          if (trialError || !trialData) {
-            console.error('Error finding clinical trial:', trialError)
+          const trialData = await apiClient.getClinicalTrialById(selectedTrialForSuggestion.external_id)
+          if (trialData) {
+            clinicalTrialId = trialData.id
+          } else {
+            console.error('Error finding clinical trial:', 'Trial not found in local arrays or database')
             alert('Failed to find clinical trial. Please try again.')
             return
           }
-          clinicalTrialId = trialData.id
         }
       }
 
-      const { error } = await supabase
-        .from('provider_recommended_trials')
-        .insert({
-          patient_id: resolvedPatientId,
-          clinical_trial_id: clinicalTrialId,
-          notes: suggestionNotes.trim() || null
-        })
-
-      if (error) {
-        console.error('Error suggesting trial:', error)
+      const result = await apiClient.suggestTrial(resolvedPatientId, clinicalTrialId, suggestionNotes.trim() || null)
+      if (result.error) {
+        console.error('Error suggesting trial:', result.error)
         alert('Failed to suggest trial. Please try again.')
       } else {
         // Refresh recommended trials list
@@ -529,10 +398,10 @@ export function ViewRecommendedTrialsDialog({
             variant="outline" 
             size="sm" 
             className="h-6 text-xs"
-            onClick={() => fetchTrialDetails(trial.external_id)}
-            disabled={loadingTrialDetails.has(trial.external_id)}
+            onClick={() => fetchTrialDetails(trial.id)}
+            disabled={loadingTrialDetails.has(trial.id)}
           >
-            {loadingTrialDetails.has(trial.external_id) ? (
+            {loadingTrialDetails.has(trial.id) ? (
               <IconLoader2 className="mr-1 h-3 w-3 animate-spin" />
             ) : (
               <IconExternalLink className="mr-1 h-3 w-3" />
@@ -621,7 +490,7 @@ export function ViewRecommendedTrialsDialog({
           </div>
           <div>
             <h4 className="font-semibold text-sm text-gray-700 mb-2">Phases</h4>
-            <p className="text-sm">{selectedTrialDetails.phases.length > 0 ? selectedTrialDetails.phases.join(', ') : 'Not specified'}</p>
+            <p className="text-sm">{Array.isArray(selectedTrialDetails.phases) && selectedTrialDetails.phases.length > 0 ? selectedTrialDetails.phases.join(', ') : 'Not specified'}</p>
           </div>
           <div>
             <h4 className="font-semibold text-sm text-gray-700 mb-2">Enrollment</h4>
@@ -754,9 +623,9 @@ export function ViewRecommendedTrialsDialog({
         )}
 
         {/* Outcomes */}
-        {(selectedTrialDetails.primary_outcomes.length > 0 || selectedTrialDetails.secondary_outcomes.length > 0) && (
+        {(Array.isArray(selectedTrialDetails.primary_outcomes) && selectedTrialDetails.primary_outcomes.length > 0) || (Array.isArray(selectedTrialDetails.secondary_outcomes) && selectedTrialDetails.secondary_outcomes.length > 0) ? (
           <Accordion type="single" collapsible className="w-full">
-            {selectedTrialDetails.primary_outcomes.length > 0 && (
+            {Array.isArray(selectedTrialDetails.primary_outcomes) && selectedTrialDetails.primary_outcomes.length > 0 && (
               <AccordionItem value="primary-outcomes">
                 <AccordionTrigger className="font-semibold text-sm">
                   Primary Outcomes ({selectedTrialDetails.primary_outcomes.length})
@@ -776,8 +645,7 @@ export function ViewRecommendedTrialsDialog({
                 </AccordionContent>
               </AccordionItem>
             )}
-            
-            {selectedTrialDetails.secondary_outcomes.length > 0 && (
+            {Array.isArray(selectedTrialDetails.secondary_outcomes) && selectedTrialDetails.secondary_outcomes.length > 0 && (
               <AccordionItem value="secondary-outcomes">
                 <AccordionTrigger className="font-semibold text-sm">
                   Secondary Outcomes ({selectedTrialDetails.secondary_outcomes.length})
@@ -798,6 +666,8 @@ export function ViewRecommendedTrialsDialog({
               </AccordionItem>
             )}
           </Accordion>
+        ) : (
+          <div className="text-sm text-gray-500">Not specified</div>
         )}
 
         {/* Locations */}

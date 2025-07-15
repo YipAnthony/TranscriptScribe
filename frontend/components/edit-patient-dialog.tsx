@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { IconLoader2 } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 
 interface EditPatientDialogProps {
   patientId: string | null
@@ -26,7 +26,6 @@ interface EditPatientDialogProps {
 export function EditPatientDialog({ patientId, open, onOpenChange, onPatientUpdated }: EditPatientDialogProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -45,28 +44,19 @@ export function EditPatientDialog({ patientId, open, onOpenChange, onPatientUpda
 
   const fetchPatientData = async () => {
     if (!patientId) return
-
     try {
       setLoading(true)
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select(`
-          *,
-          addresses:address_id(city, state)
-        `)
-        .eq('id', patientId)
-        .single()
-
-      if (patientError) throw patientError
-
-      setFormData({
-        first_name: patient.first_name || "",
-        last_name: patient.last_name || "",
-        date_of_birth: patient.date_of_birth || "",
-        sex: patient.sex || "",
-        city: patient.addresses?.city || "",
-        state: patient.addresses?.state || "",
-      })
+      const patient = await apiClient.getPatientById(patientId)
+      if (patient) {
+        setFormData({
+          first_name: patient.first_name || "",
+          last_name: patient.last_name || "",
+          date_of_birth: patient.date_of_birth || "",
+          sex: patient.sex || "",
+          city: (patient as any).city || "",
+          state: (patient as any).state || "",
+        })
+      }
     } catch (err) {
       console.error('Error fetching patient data:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch patient data')
@@ -79,67 +69,18 @@ export function EditPatientDialog({ patientId, open, onOpenChange, onPatientUpda
     e.preventDefault()
     setLoading(true)
     setError(null)
-
     try {
       // Validate required fields
       if (!formData.first_name || !formData.last_name) {
         throw new Error("First Name and Last Name are required")
       }
-
       // Validate state field (must be exactly 2 letters if provided)
       if (formData.state && (formData.state.length !== 2 || !/^[A-Za-z]{2}$/.test(formData.state))) {
         throw new Error("State must be exactly 2 letters (e.g., NY, CA)")
       }
-
-      let addressId = null
-
-      // Create or update address if city or state is provided
-      if (formData.city || formData.state) {
-        // Check if address already exists
-        const { data: existingAddress } = await supabase
-          .from('addresses')
-          .select('id')
-          .eq('city', formData.city || null)
-          .eq('state', formData.state || null)
-          .single()
-
-        if (existingAddress) {
-          addressId = existingAddress.id
-        } else {
-          // Create new address
-          const { data: newAddress, error: addressError } = await supabase
-            .from('addresses')
-            .insert({
-              city: formData.city || null,
-              state: formData.state || null,
-            })
-            .select('id')
-            .single()
-
-          if (addressError) {
-            throw addressError
-          }
-
-          addressId = newAddress.id
-        }
+      if (patientId) {
+        await apiClient.updatePatient(patientId, formData)
       }
-
-      // Update patient
-      const { error: updateError } = await supabase
-        .from('patients')
-        .update({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          date_of_birth: formData.date_of_birth || null,
-          sex: formData.sex || null,
-          address_id: addressId,
-        })
-        .eq('id', patientId)
-
-      if (updateError) {
-        throw updateError
-      }
-
       onOpenChange(false)
       onPatientUpdated()
     } catch (err) {

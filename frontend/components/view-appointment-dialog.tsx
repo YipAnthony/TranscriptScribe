@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { IconLoader2, IconFileText, IconUser, IconMapPin, IconPill, IconStethoscope, IconHeart, IconMicroscope, IconScan, IconHistory, IconActivity, IconChevronDown } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 
 interface Appointment {
   id: string
@@ -66,7 +66,6 @@ interface ViewAppointmentDialogProps {
 export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: ViewAppointmentDialogProps) {
   const [appointment, setAppointment] = useState<Appointment | null>(null)
   const [loading, setLoading] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     if (open && appointmentId) {
@@ -76,31 +75,10 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
 
   const fetchAppointmentDetails = async () => {
     if (!appointmentId) return
-
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('transcripts')
-        .select(`
-          *,
-          patients:patient_id(
-            first_name, 
-            last_name
-          )
-        `)
-        .eq('id', appointmentId)
-        .single()
-
-      if (error) throw error
-
-      const transformedAppointment = {
-        ...data,
-        patient_name: data.patients 
-          ? `${data.patients.first_name} ${data.patients.last_name}`
-          : 'Unknown Patient'
-      }
-
-      setAppointment(transformedAppointment)
+      const data = await apiClient.getAppointmentById(appointmentId)
+      setAppointment(data)
     } catch (err) {
       console.error('Error fetching appointment details:', err)
     } finally {

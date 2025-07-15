@@ -23,7 +23,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
 import type { Patient } from "@/types"
 
@@ -45,7 +44,6 @@ export function AddAppointmentDialog({ onAppointmentAdded }: AddAppointmentDialo
   const [conversationText, setConversationText] = useState("")
   const [generatedConversation, setGeneratedConversation] = useState("")
   const [activeTab, setActiveTab] = useState("manual")
-  const supabase = createClient()
 
   useEffect(() => {
     if (open) {
@@ -56,13 +54,8 @@ export function AddAppointmentDialog({ onAppointmentAdded }: AddAppointmentDialo
   const fetchPatients = async () => {
     try {
       setPatientsLoading(true)
-      const { data, error } = await supabase
-        .from('patients')
-        .select('id, first_name, last_name')
-        .order('first_name', { ascending: true })
-
-      if (error) throw error
-      setPatients(data || [])
+      const data = await apiClient.getPatientsForSelect()
+      setPatients(data)
     } catch (err) {
       console.error('Error fetching patients:', err)
     } finally {

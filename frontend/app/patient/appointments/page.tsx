@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { IconCalendar, IconRefresh, IconUser, IconUsers, IconFileDescription, IconLoader2 } from "@tabler/icons-react"
 import { AppointmentsTable } from "@/components/appointments-table"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 import {
   Select,
   SelectContent,
@@ -20,10 +20,8 @@ export default function PatientAppointmentsPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [patientTranscripts, setPatientTranscripts] = useState<Transcript[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
-  const [appointmentCount, setAppointmentCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [transcriptLoading, setTranscriptLoading] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchPatients()
@@ -38,19 +36,11 @@ export default function PatientAppointmentsPage() {
   const fetchPatients = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('patients')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching patients:', error)
-      } else {
-        setPatients(data || [])
-        // Auto-select the first patient if available
-        if (data && data.length > 0) {
-          setSelectedPatient(data[0])
-        }
+      const data = await apiClient.getPatients()
+      setPatients(data)
+      // Auto-select the first patient if available
+      if (data && data.length > 0) {
+        setSelectedPatient(data[0])
       }
     } catch (err) {
       console.error('Error fetching patients:', err)
@@ -62,17 +52,8 @@ export default function PatientAppointmentsPage() {
   const fetchPatientTranscripts = async (patientId: string) => {
     try {
       setTranscriptLoading(true)
-      const { data, error } = await supabase
-        .from('transcripts')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching transcripts:', error)
-      } else {
-        setPatientTranscripts(data || [])
-      }
+      const data = await apiClient.getAppointments(patientId)
+      setPatientTranscripts(data)
     } catch (err) {
       console.error('Error fetching transcripts:', err)
     } finally {

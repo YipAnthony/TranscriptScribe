@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
-import { createClient } from "@/lib/supabase/client"
+import { apiClient } from '@/lib/api-client'
 
 interface AddPatientDialogProps {
   onPatientAdded: () => void
@@ -25,7 +25,6 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
 
   const [formData, setFormData] = useState({
     first_name: "",
@@ -52,53 +51,7 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
         throw new Error("State must be exactly 2 letters (e.g., NY, CA)")
       }
 
-      let addressId = null
-
-      // Create address if city or state is provided
-      if (formData.city || formData.state) {
-        // Check if address already exists
-        const { data: existingAddress } = await supabase
-          .from('addresses')
-          .select('id')
-          .eq('city', formData.city || null)
-          .eq('state', formData.state || null)
-          .single()
-
-        if (existingAddress) {
-          addressId = existingAddress.id
-        } else {
-          // Create new address
-          const { data: newAddress, error: addressError } = await supabase
-            .from('addresses')
-            .insert({
-              city: formData.city || null,
-              state: formData.state || null,
-            })
-            .select('id')
-            .single()
-
-          if (addressError) {
-            throw addressError
-          }
-
-          addressId = newAddress.id
-        }
-      }
-
-      // Insert new patient with address_id
-      const { error: insertError } = await supabase
-        .from('patients')
-        .insert({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          date_of_birth: formData.date_of_birth || null,
-          sex: formData.sex || null,
-          address_id: addressId,
-        })
-
-      if (insertError) {
-        throw insertError
-      }
+      await apiClient.addPatient(formData)
 
       // Reset form and close dialog
       setFormData({
