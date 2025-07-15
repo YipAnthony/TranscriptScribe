@@ -57,61 +57,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
-
-interface Patient {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | null
-  sex: string | null
-  email: string | null
-  phone: string | null
-  created_at: string
-}
-
-interface ClinicalTrial {
-  id: string
-  external_id: string
-  brief_title: string
-  official_title: string
-  brief_summary: string
-  conditions: string[]
-  eligibility_criteria: string
-  created_at: string
-}
-
-interface ClinicalTrialDetails {
-  external_id: string
-  brief_title: string
-  official_title?: string
-  status: string
-  conditions: string[]
-  sponsor_name?: string
-  phases: string[]
-  minimum_age?: string
-  maximum_age?: string
-  locations: string[]
-  brief_summary?: string
-  detailed_description?: string
-  study_type?: string
-  primary_purpose?: string
-  enrollment_count?: number
-  start_date?: string
-  completion_date?: string
-  primary_completion_date?: string
-  eligibility_criteria?: string
-  sex?: string
-  healthy_volunteers?: boolean
-  standard_ages: string[]
-  interventions: Array<{name: string, type: string}>
-  primary_outcomes: Array<{measure: string, description: string, time_frame: string, outcome_type: string}>
-  secondary_outcomes: Array<{measure: string, description: string, time_frame: string, outcome_type: string}>
-  central_contacts: Array<{name: string, email?: string, phone?: string}>
-  overall_officials: Array<{name: string, email?: string, phone?: string}>
-  source_registry?: string
-  registry_version?: string
-  last_updated?: string
-}
+import type { Patient, ClinicalTrial, ClinicalTrialDetails } from "@/types"
 
 interface SavedTrial {
   id: string

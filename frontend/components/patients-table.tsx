@@ -22,18 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { IconDots, IconEye, IconEdit, IconTrash, IconFileText, IconLoader2 } from "@tabler/icons-react"
 import { createClient } from "@/lib/supabase/client"
 import { EditPatientDialog } from "./edit-patient-dialog"
-
-interface Patient {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | null
-  sex: string | null
-  created_at: string
-  updated_at: string
-  transcript_count?: number
-
-}
+import type { Patient } from "@/types"
 
 interface PatientsTableProps {
   refreshKey?: number
@@ -153,15 +142,15 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
                 <TableCell className="font-medium">
                   {formatName(patient.first_name, patient.last_name)}
                 </TableCell>
-                <TableCell>{formatDate(patient.date_of_birth)}</TableCell>
-                <TableCell>{getSexDisplay(patient.sex)}</TableCell>
+                <TableCell>{formatDate(patient.date_of_birth || '')}</TableCell>
+                <TableCell>{getSexDisplay(patient.sex || '')}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <IconFileText className="h-4 w-4" />
                     {patient.transcript_count}
                   </div>
                 </TableCell>
-                <TableCell>{formatDate(patient.created_at)}</TableCell>
+                <TableCell>{formatDate(patient.created_at || '')}</TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

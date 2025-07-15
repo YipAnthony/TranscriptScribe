@@ -16,65 +16,14 @@ import { IconLoader2, IconFlask, IconStar, IconMapPin, IconCalendar, IconExterna
 import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
-
-interface ClinicalTrial {
-  id: string
-  external_id: string
-  brief_title: string
-  status: string
-  conditions: string[]
-  brief_summary: string
-  locations: string[]
-  created_at: string
-}
-
-interface ClinicalTrialDetails {
-  external_id: string
-  brief_title: string
-  official_title?: string
-  status: string
-  conditions: string[]
-  sponsor_name?: string
-  phases: string[]
-  minimum_age?: string
-  maximum_age?: string
-  locations: string[]
-  brief_summary?: string
-  detailed_description?: string
-  study_type?: string
-  primary_purpose?: string
-  enrollment_count?: number
-  start_date?: string
-  completion_date?: string
-  primary_completion_date?: string
-  eligibility_criteria?: string
-  sex?: string
-  healthy_volunteers?: boolean
-  standard_ages: string[]
-  interventions: Array<{name: string, type: string}>
-  primary_outcomes: Array<{measure: string, description: string, time_frame: string, outcome_type: string}>
-  secondary_outcomes: Array<{measure: string, description: string, time_frame: string, outcome_type: string}>
-  central_contacts: Array<{name: string, email?: string, phone?: string}>
-  overall_officials: Array<{name: string, email?: string, phone?: string}>
-  source_registry?: string
-  registry_version?: string
-  last_updated?: string
-}
-
-interface TranscriptRecommendations {
-  id: string
-  transcript_id: string
-  eligible_trials: string[]
-  uncertain_trials: string[]
-  created_at: string
-}
+import type { ClinicalTrial, ClinicalTrialDetails, TranscriptRecommendations } from "@/types"
 
 interface ViewRecommendedTrialsDialogProps {
-  appointmentId: string | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  patientId?: string
-  isPatientView?: boolean
+    appointmentId: string | null
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    patientId?: string
+    isPatientView?: boolean
 }
 
 function unescapeText(text: string): string {
@@ -535,7 +484,7 @@ export function ViewRecommendedTrialsDialog({
         </div>
         
         <div className="flex items-center gap-2 text-xs">
-          {getStatusBadge(trial.status)}
+          {getStatusBadge(trial.status || 'RECRUITING')}
           {trial.locations && trial.locations.length > 0 && (
             <div className="flex items-center gap-1 text-gray-600">
               <IconMapPin className="h-3 w-3" />
@@ -1068,7 +1017,7 @@ export function ViewRecommendedTrialsDialog({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {getStatusBadge(selectedTrialForSuggestion.status)}
+                {getStatusBadge(selectedTrialForSuggestion.status || 'RECRUITING')}
               </div>
             </div>
             

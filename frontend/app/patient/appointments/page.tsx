@@ -13,27 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-interface Patient {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | null
-  sex: string | null
-  email: string | null
-  phone: string | null
-  created_at: string
-}
-
-interface Transcript {
-  id: string
-  patient_id: string
-  raw_transcript: string
-  parsed_transcript: any
-  recorded_at: string
-  created_at: string
-  updated_at: string
-}
+import type { Patient, Transcript } from "@/types"
 
 export default function PatientAppointmentsPage() {
   const [patients, setPatients] = useState<Patient[]>([])
@@ -205,10 +185,10 @@ export default function PatientAppointmentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {calculateAge(selectedPatient.date_of_birth)}
+                  {calculateAge(selectedPatient.date_of_birth || '')}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {getSexDisplay(selectedPatient.sex)}
+                  {getSexDisplay(selectedPatient.sex || '')}
                 </p>
               </CardContent>
             </Card>
@@ -233,7 +213,7 @@ export default function PatientAppointmentsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatDate(selectedPatient.created_at)}
+                  {formatDate(selectedPatient.created_at || '')}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Patient registered

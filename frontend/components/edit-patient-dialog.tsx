@@ -16,17 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IconLoader2 } from "@tabler/icons-react"
 import { createClient } from "@/lib/supabase/client"
 
-interface Patient {
-  id: string
-  first_name: string
-  last_name: string
-  date_of_birth: string | null
-  sex: string | null
-  email: string | null
-  phone: string | null
-  address_id: string | null
-}
-
 interface EditPatientDialogProps {
   patientId: string | null
   open: boolean

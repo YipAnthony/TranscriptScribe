@@ -25,12 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { IconPlus, IconLoader2 } from "@tabler/icons-react"
 import { createClient } from "@/lib/supabase/client"
 import { apiClient } from "@/lib/api-client"
-
-interface Patient {
-  id: string
-  first_name: string
-  last_name: string
-}
+import type { Patient } from "@/types"
 
 interface AddAppointmentDialogProps {
   onAppointmentAdded: () => void
