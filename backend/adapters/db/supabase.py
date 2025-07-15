@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import logging
@@ -24,6 +25,26 @@ class SupabaseAdapter(DatabasePort):
         
         self.client: Client = create_client(supabase_url, supabase_key)
         logger.info("Supabase client initialized")
+    
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean LaTeX escape sequences and other formatting artifacts from text
+        """
+        if not text:
+            return text
+            
+        # Remove LaTeX-style math delimiters
+        text = re.sub(r'\\\[(.*?)\\\]', r'\1', text)  # \[text\] -> text
+        text = re.sub(r'\\\((.*?)\\\)', r'\1', text)  # \(text\) -> text
+        
+        # Remove other common LaTeX escape sequences
+        text = re.sub(r'\\[a-zA-Z]+', '', text)  # Remove \command sequences
+        
+        # Clean up extra whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        return text
     
     # Patient methods
     def get_patient(self, patient_id: str) -> Patient:
@@ -449,15 +470,15 @@ class SupabaseAdapter(DatabasePort):
         
         return ClinicalTrial(
             external_id=row["external_id"],
-            brief_title=row["brief_title"],
-            official_title=row.get("official_title", ""),
+            brief_title=self._clean_text(row["brief_title"]),
+            official_title=self._clean_text(row.get("official_title", "")),
             status=row["status"],
-            conditions=row.get("conditions", []),
-            sponsor_name=row.get("sponsor_name", ""),
+            conditions=[self._clean_text(condition) for condition in row.get("conditions", [])],
+            sponsor_name=self._clean_text(row.get("sponsor_name", "")),
             phases=row.get("phases", []),
             minimum_age=row.get("minimum_age"),
             maximum_age=row.get("maximum_age"),
             locations=locations,
-            brief_summary=row.get("brief_summary"),
+            brief_summary=self._clean_text(str(row.get("brief_summary", ""))),
             interventions=[]  # Not stored in simplified schema
         )

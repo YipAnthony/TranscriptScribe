@@ -91,13 +91,14 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             # Search for specific trial by NCT ID
             search_params = {
                 "filter.ids": [trial_id],
-                "fields": ["NCTId", "BriefTitle", "OfficialTitle", "OverallStatus", "Condition", 
-                          "LeadSponsorName", "Phase", "MinimumAge", "MaximumAge", "Location", 
-                          "BriefSummary", "Intervention", "EnrollmentCount", "StartDate", 
-                          "DetailedDescription", "StudyType", "CompletionDate", 
-                          "PrimaryCompletionDate", "EligibilityCriteria", "Sex", "HealthyVolunteers", 
-                          "ArmGroup", "CentralContact", "OverallOfficial", 
-                          "LastUpdatePostDate"]
+                "fields": [
+                    "NCTId", "BriefTitle", "OfficialTitle", "OverallStatus", "Condition", 
+                    "LeadSponsorName", "Phase", "MinimumAge", "MaximumAge", "Location", 
+                    "BriefSummary", "Intervention", "EnrollmentCount", "StartDate", 
+                    "DetailedDescription", "StudyType", "CompletionDate", 
+                    "PrimaryCompletionDate", "EligibilityCriteria", "Sex", "HealthyVolunteers", 
+                    "ArmGroup", "CentralContact", "OverallOfficial", "LastUpdatePostDate"
+                ]
             }
             
             trials_data = await self._search_trials(search_params)
@@ -122,13 +123,14 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         params = {
             "format": "json",
             "pageSize": 50,  # Limit results for initial implementation
-            "fields": ["NCTId", "BriefTitle", "OfficialTitle", "OverallStatus", "Condition", 
-                      "LeadSponsorName", "Phase", "MinimumAge", "MaximumAge", "Location", 
-                      "BriefSummary", "Intervention", "EnrollmentCount", "StartDate", 
-                      "DetailedDescription", "StudyType", "CompletionDate", 
-                      "PrimaryCompletionDate", "EligibilityCriteria", "Sex", "HealthyVolunteers", 
-                      "ArmGroup", "CentralContact", "OverallOfficial", 
-                      "LastUpdatePostDate"],
+            "fields": [
+                "NCTId", "BriefTitle", "OfficialTitle", "OverallStatus", "Condition", 
+                "LeadSponsorName", "Phase", "MinimumAge", "MaximumAge", "Location", 
+                "BriefSummary", "Intervention", "EnrollmentCount", "StartDate", 
+                "DetailedDescription", "StudyType", "CompletionDate", 
+                "PrimaryCompletionDate", "EligibilityCriteria", "Sex", "HealthyVolunteers", 
+                "ArmGroup", "CentralContact", "OverallOfficial", "LastUpdatePostDate"
+            ],
             "sort": ["@relevance"]
         }
         
@@ -268,9 +270,10 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             protocol_section = trial_data.get("protocolSection", {})
             identification_module = protocol_section.get("identificationModule", {})
             status_module = protocol_section.get("statusModule", {})
-            sponsor_module = protocol_section.get("sponsorModule", {})
+            sponsor_collaborators_module = protocol_section.get("sponsorCollaboratorsModule", {})
             description_module = protocol_section.get("descriptionModule", {})
             conditions_module = protocol_section.get("conditionsModule", {})
+            design_module = protocol_section.get("designModule", {})
             arms_interventions_module = protocol_section.get("armsInterventionsModule", {})
             eligibility_module = protocol_section.get("eligibilityModule", {})
             contacts_locations_module = protocol_section.get("contactsLocationsModule", {})
@@ -283,18 +286,22 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
             
             # Status and sponsor
             status = status_module.get("overallStatus", "")
-            sponsor_name = sponsor_module.get("leadSponsor", {}).get("leadSponsorName", "")
+            
+            # Sponsor information - try multiple sources
+            sponsor_name = ""
+            lead_sponsor = sponsor_collaborators_module.get("leadSponsor", {})
+            if lead_sponsor:
+                sponsor_name = lead_sponsor.get("name", "")
             
             # Conditions
             conditions = conditions_module.get("conditions", [])
             
-            # Phases
+            # Phases from design module
             phases = []
-            phase_info = arms_interventions_module.get("phaseInfo", [])
-            for phase in phase_info:
-                phase_name = phase.get("phase", "")
-                if phase_name:
-                    phases.append(phase_name)
+            phases_data = design_module.get("phases", [])
+            for phase in phases_data:
+                if phase and phase != "NA":
+                    phases.append(phase)
             
             # Age information
             minimum_age = eligibility_module.get("minimumAge", "")
@@ -334,27 +341,72 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                 )
                 interventions.append(intervention_obj)
             
-            # Enrollment count
-            enrollment_count = eligibility_module.get("enrollmentCount")
-            if enrollment_count:
-                try:
-                    enrollment_count = int(enrollment_count)
-                except (ValueError, TypeError):
-                    enrollment_count = None
+            # Enrollment count from design module
+            enrollment_count = None
+            enrollment_info = design_module.get("enrollmentInfo", {})
+            if enrollment_info:
+                enrollment_count = enrollment_info.get("count")
+                if enrollment_count:
+                    try:
+                        enrollment_count = int(enrollment_count)
+                    except (ValueError, TypeError):
+                        enrollment_count = None
             
-            # Dates
+            # Dates with proper structure handling
             start_date = None
-            start_date_str = status_module.get("startDateStruct", {}).get("date")
-            if start_date_str:
-                try:
-                    start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
-                except (ValueError, TypeError):
-                    pass
+            start_date_struct = status_module.get("startDateStruct", {})
+            if start_date_struct:
+                start_date_str = start_date_struct.get("date")
+                if start_date_str:
+                    try:
+                        # Handle different date formats (YYYY-MM or YYYY-MM-DD)
+                        if len(start_date_str) == 7:  # YYYY-MM format
+                            start_date_str += "-01"  # Add day
+                        start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+            
+            completion_date = None
+            completion_date_struct = status_module.get("completionDateStruct", {})
+            if completion_date_struct:
+                completion_date_str = completion_date_struct.get("date")
+                if completion_date_str:
+                    try:
+                        if len(completion_date_str) == 7:  # YYYY-MM format
+                            completion_date_str += "-01"  # Add day
+                        completion_date = datetime.fromisoformat(completion_date_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+            
+            primary_completion_date = None
+            primary_completion_date_struct = status_module.get("primaryCompletionDateStruct", {})
+            if primary_completion_date_struct:
+                primary_completion_date_str = primary_completion_date_struct.get("date")
+                if primary_completion_date_str:
+                    try:
+                        if len(primary_completion_date_str) == 7:  # YYYY-MM format
+                            primary_completion_date_str += "-01"  # Add day
+                        primary_completion_date = datetime.fromisoformat(primary_completion_date_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # Last updated date
+            last_updated = None
+            last_update_post_date_struct = status_module.get("lastUpdatePostDateStruct", {})
+            if last_update_post_date_struct:
+                last_update_date_str = last_update_post_date_struct.get("date")
+                if last_update_date_str:
+                    try:
+                        if len(last_update_date_str) == 7:  # YYYY-MM format
+                            last_update_date_str += "-01"  # Add day
+                        last_updated = datetime.fromisoformat(last_update_date_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
             
             # Detailed information
             detailed_description = description_module.get("detailedDescription", "")
-            study_type = status_module.get("studyType", "")
-            primary_purpose = status_module.get("primaryPurpose", "")
+            study_type = design_module.get("studyType", "")
+            primary_purpose = design_module.get("primaryPurpose", "")
             
             # Eligibility
             eligibility_criteria = eligibility_module.get("eligibilityCriteria", "")
@@ -367,7 +419,46 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                     healthy_volunteers = healthy_volunteers_raw.lower() in ["yes", "true", "1"]
                 else:
                     healthy_volunteers = bool(healthy_volunteers_raw)
-            standard_ages = eligibility_module.get("standardAges", [])
+            standard_ages = eligibility_module.get("stdAges", [])
+            
+            # Outcomes
+            primary_outcomes = []
+            primary_outcomes_data = outcomes_module.get("primaryOutcomes", [])
+            for outcome in primary_outcomes_data:
+                outcome_obj = Outcome(
+                    measure=outcome.get("measure", ""),
+                    description=outcome.get("description", ""),
+                    time_frame=outcome.get("timeFrame", ""),
+                    outcome_type="PRIMARY"
+                )
+                primary_outcomes.append(outcome_obj)
+            
+            secondary_outcomes = []
+            secondary_outcomes_data = outcomes_module.get("secondaryOutcomes", [])
+            for outcome in secondary_outcomes_data:
+                outcome_obj = Outcome(
+                    measure=outcome.get("measure", ""),
+                    description=outcome.get("description", ""),
+                    time_frame=outcome.get("timeFrame", ""),
+                    outcome_type="SECONDARY"
+                )
+                secondary_outcomes.append(outcome_obj)
+            
+            # Contacts
+            central_contacts = []
+            overall_officials = []
+            
+            # Overall officials
+            overall_officials_data = contacts_locations_module.get("overallOfficials", [])
+            for official in overall_officials_data:
+                contact_obj = Contact(
+                    name=official.get("name", ""),
+                    role=official.get("role", ""),
+                    affiliation=official.get("affiliation", ""),
+                    phone=official.get("phone", ""),
+                    email=official.get("email", "")
+                )
+                overall_officials.append(contact_obj)
             
             # Create ClinicalTrial instance
             clinical_trial = ClinicalTrial(
@@ -388,12 +479,19 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                 detailed_description=detailed_description,
                 study_type=study_type,
                 primary_purpose=primary_purpose,
+                completion_date=completion_date,
+                primary_completion_date=primary_completion_date,
                 eligibility_criteria=eligibility_criteria,
                 sex=sex,
                 healthy_volunteers=healthy_volunteers,
                 standard_ages=standard_ages,
+                primary_outcomes=primary_outcomes,
+                secondary_outcomes=secondary_outcomes,
+                central_contacts=central_contacts,
+                overall_officials=overall_officials,
                 source_registry=self.SOURCE_REGISTRY,
-                registry_version=self.VERSION
+                registry_version=self.VERSION,
+                last_updated=last_updated
             )
             
             return clinical_trial
