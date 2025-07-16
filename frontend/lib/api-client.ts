@@ -102,12 +102,14 @@ class ApiClient {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('patients')
-      .select(`*, transcripts:transcripts(count)`)
+      .select(`*, transcripts:transcripts(count), addresses:address_id(city, state)`)
       .order('created_at', { ascending: false })
     if (error) throw error
     return (data || []).map((patient: any) => ({
       ...patient,
-      transcript_count: patient.transcripts?.[0]?.count || 0
+      transcript_count: patient.transcripts?.[0]?.count || 0,
+      city: patient.addresses?.city || '',
+      state: patient.addresses?.state || ''
     }))
   }
 
@@ -196,6 +198,15 @@ class ApiClient {
         email: patient.email || null,
         phone: patient.phone || null
       })
+      .eq('id', patientId)
+    if (error) throw error
+  }
+
+  async deletePatient(patientId: string): Promise<void> {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('patients')
+      .delete()
       .eq('id', patientId)
     if (error) throw error
   }

@@ -21,11 +21,6 @@ import {
 
 const adminNavItems = [
   {
-    title: "Dashboard",
-    url: "/admin",
-    icon: IconHome,
-  },
-  {
     title: "Patients",
     url: "/admin/patients",
     icon: IconUsers,

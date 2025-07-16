@@ -12,6 +12,8 @@ export interface Patient {
   created_at?: string
   updated_at?: string
   transcript_count?: number
+  city?: string | null
+  state?: string | null
 }
 
 // Remove Appointment interface and replace with Transcript interface matching the transcripts table schema

@@ -45,13 +45,71 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
       // Validate required fields
       if (!formData.first_name || !formData.last_name) {
         toast.error("First Name and Last Name are required")
-        throw new Error("First Name and Last Name are required")
+        setLoading(false)
+        return
+      }
+
+      // Validate first and last name length
+      if (formData.first_name.length < 2) {
+        toast.error("First Name must be at least 2 characters long")
+        setLoading(false)
+        return
+      }
+
+      if (formData.last_name.length < 2) {
+        toast.error("Last Name must be at least 2 characters long")
+        setLoading(false)
+        return
+      }
+
+      // Validate date of birth
+      if (formData.date_of_birth) {
+        const birthDate = new Date(formData.date_of_birth)
+        const today = new Date()
+        const minDate = new Date('1900-01-01')
+        
+        // Check if date is valid
+        if (isNaN(birthDate.getTime())) {
+          toast.error("Please enter a valid date of birth")
+          setLoading(false)
+          return
+        }
+        
+        // Check if date is in the future
+        if (birthDate > today) {
+          toast.error("Date of birth cannot be in the future")
+          setLoading(false)
+          return
+        }
+        
+        // Check if date is too far in the past (before 1900)
+        if (birthDate < minDate) {
+          toast.error("Date of birth cannot be before 1900")
+          setLoading(false)
+          return
+        }
+        
+        // Check if person would be older than 150 years
+        const ageInYears = today.getFullYear() - birthDate.getFullYear()
+        if (ageInYears > 150) {
+          toast.error("Please enter a valid date of birth (person cannot be older than 150 years)")
+          setLoading(false)
+          return
+        }
       }
 
       // Validate state field (must be exactly 2 letters if provided)
       if (formData.state && (formData.state.length !== 2 || !/^[A-Za-z]{2}$/.test(formData.state))) {
         toast.error("State must be exactly 2 letters (e.g., NY, CA)")
-        throw new Error("State must be exactly 2 letters (e.g., NY, CA)")
+        setLoading(false)
+        return
+      }
+
+      // Validate city length if provided
+      if (formData.city && formData.city.length < 2) {
+        toast.error("City must be at least 2 characters long")
+        setLoading(false)
+        return
       }
 
       await apiClient.addPatient(formData)
@@ -139,6 +197,7 @@ export function AddPatientDialog({ onPatientAdded }: AddPatientDialogProps) {
                   type="date"
                   value={formData.date_of_birth}
                   onChange={(e) => handleInputChange('date_of_birth', e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
                   disabled={loading}
                 />
               </div>

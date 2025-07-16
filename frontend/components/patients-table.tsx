@@ -18,7 +18,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { IconDots, IconEye, IconEdit, IconTrash, IconFileText, IconLoader2 } from "@tabler/icons-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { IconDots, IconEye, IconEdit, IconTrash, IconFileText, IconLoader2, IconCalendar } from "@tabler/icons-react"
 import { apiClient } from '@/lib/api-client'
 import { EditPatientDialog } from "./edit-patient-dialog"
 import type { Patient } from "@/types"
@@ -33,6 +41,10 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null)
+  const [deletingPatientId, setDeletingPatientId] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchPatients()
@@ -67,6 +79,33 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
     return sex.charAt(0).toUpperCase() + sex.slice(1).toLowerCase()
   }
 
+  const handleDeleteClick = (patient: Patient) => {
+    setPatientToDelete(patient)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!patientToDelete) return
+    
+    try {
+      setDeleting(true)
+      await apiClient.deletePatient(patientToDelete.id)
+      toast.success('Patient deleted successfully')
+      fetchPatients() // Refresh the list
+      setDeleteConfirmOpen(false)
+      setPatientToDelete(null)
+    } catch (err) {
+      console.error('Error deleting patient:', err)
+      toast.error('Failed to delete patient. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false)
+    setPatientToDelete(null)
+  }
 
 
   if (loading) {
@@ -112,7 +151,8 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
               <TableHead>Name</TableHead>
               <TableHead>Date of Birth</TableHead>
               <TableHead>Sex</TableHead>
-              <TableHead>Transcripts</TableHead>
+              <TableHead>Location</TableHead>
+              <TableHead>Appointments</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -126,8 +166,11 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
                 <TableCell>{formatDate(patient.date_of_birth || '')}</TableCell>
                 <TableCell>{getSexDisplay(patient.sex || '')}</TableCell>
                 <TableCell>
+                  {(patient.city || patient.state) ? `${patient.city || ''}${patient.city && patient.state ? ', ' : ''}${patient.state || ''}` : '—'}
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-2">
-                    <IconFileText className="h-4 w-4" />
+                    <IconCalendar className="h-4 w-4" />
                     {patient.transcript_count}
                   </div>
                 </TableCell>
@@ -141,21 +184,17 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <IconEye className="mr-2 h-4 w-4" />
-                        View Details
-                      </DropdownMenuItem>
+           
                       <DropdownMenuItem onClick={() => setEditingPatientId(patient.id)}>
                         <IconEdit className="mr-2 h-4 w-4" />
-                        Edit Patient
+                        Edit
                       </DropdownMenuItem>
+               
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <IconFileText className="mr-2 h-4 w-4" />
-                        View Transcripts
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem 
+                        className="text-red-600"
+                        onClick={() => handleDeleteClick(patient)}
+                      >
                         <IconTrash className="mr-2 h-4 w-4" />
                         Delete Patient
                       </DropdownMenuItem>
@@ -174,6 +213,37 @@ export function PatientsTable({ refreshKey = 0 }: PatientsTableProps) {
         onOpenChange={(open) => !open && setEditingPatientId(null)}
         onPatientUpdated={fetchPatients}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Patient</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {patientToDelete ? `${patientToDelete.first_name} ${patientToDelete.last_name}` : 'this patient'}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDeleteCancel} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteConfirm}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Patient'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 } 

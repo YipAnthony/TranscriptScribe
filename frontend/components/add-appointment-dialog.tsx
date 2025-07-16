@@ -119,7 +119,8 @@ Dr. Smith: Thank you for sharing that. Let me examine you and then we'll discuss
       })
 
       if (transcriptResponse.error) {
-        throw new Error(transcriptResponse.error)
+        toast.error("Issue creating appointment: " + transcriptResponse.error)
+        return
       }
 
       // Step 2: Get the transcript ID from the response and create clinical trial recommendations

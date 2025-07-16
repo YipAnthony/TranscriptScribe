@@ -45,7 +45,7 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <Button className="w-full" variant="default">
-                  Access Admin Dashboard
+                  Access Admin Portal
                 </Button>
               </CardContent>
             </Card>

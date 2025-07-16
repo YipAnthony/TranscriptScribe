@@ -35,6 +35,12 @@ export default function PatientsPage() {
     setRefreshKey(prev => prev + 1)
   }
 
+  const handleRefresh = () => {
+    // Refresh both the count and the table
+    fetchPatientCount()
+    setRefreshKey(prev => prev + 1)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -50,7 +56,7 @@ export default function PatientsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchPatientCount}>
+          <Button variant="outline" onClick={handleRefresh}>
             <IconRefresh className="mr-2 h-4 w-4" />
             Refresh
           </Button>

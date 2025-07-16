@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { IconLoader2, IconFileText, IconUser, IconMapPin, IconPill, IconStethoscope, IconHeart, IconMicroscope, IconScan, IconHistory, IconActivity, IconChevronDown } from "@tabler/icons-react"
+import { IconLoader2, IconFileText, IconUser, IconMapPin, IconPill, IconStethoscope, IconHeart, IconMicroscope, IconScan, IconHistory, IconActivity, IconChevronDown, IconCheck, IconX, IconInfoCircle, IconBrain, IconScissors } from "@tabler/icons-react"
 import { apiClient } from '@/lib/api-client'
 
 interface Appointment {
@@ -103,23 +103,169 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
     return <Badge className={config.color}>{config.label}</Badge>
   }
 
-  const renderArrayField = (items: string[] | undefined, emptyMessage: string) => {
+  // Enhanced rendering functions for better UI/UX
+  const renderPillList = (items: string[] | undefined, emptyMessage: string, variant: 'default' | 'positive' | 'negative' | 'neutral' = 'default') => {
     if (!items || items.length === 0) {
-      return <p className="text-gray-500 italic text-left">{emptyMessage}</p>
+      return (
+        <div className="flex items-center gap-2 text-gray-500 italic">
+          <IconInfoCircle className="h-4 w-4" />
+          <span className="text-sm">{emptyMessage}</span>
+        </div>
+      )
     }
+
+    const variantStyles = {
+      default: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100',
+      positive: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
+      negative: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100',
+      neutral: 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+    }
+
     return (
-      <ul className="space-y-1 text-left">
+      <div className="flex flex-wrap gap-2">
         {items.map((item, index) => (
-          <li key={index} className="text-sm">• {item}</li>
+          <Badge 
+            key={index} 
+            variant="outline" 
+            className={`${variantStyles[variant]} text-xs px-3 py-1 rounded-full`}
+          >
+            {item}
+          </Badge>
         ))}
-      </ul>
+      </div>
     )
+  }
+
+  const renderSymptomSection = (positiveSymptoms: string[] | undefined, negativeSymptoms: string[] | undefined) => {
+    const hasPositive = positiveSymptoms && positiveSymptoms.length > 0
+    const hasNegative = negativeSymptoms && negativeSymptoms.length > 0
+
+    if (!hasPositive && !hasNegative) {
+      return (
+        <div className="flex items-center gap-2 text-gray-500 italic">
+          <IconInfoCircle className="h-4 w-4" />
+          <span className="text-sm">No symptoms recorded</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-4">
+        {hasPositive && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <IconCheck className="h-4 w-4 text-green-600" />
+              <h4 className="font-medium text-sm text-green-700">Positive Symptoms</h4>
+            </div>
+            {renderPillList(positiveSymptoms, '', 'positive')}
+          </div>
+        )}
+        {hasNegative && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <IconX className="h-4 w-4 text-red-600" />
+              <h4 className="font-medium text-sm text-red-700">Negative Symptoms</h4>
+            </div>
+            {renderPillList(negativeSymptoms, '', 'negative')}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderLabImagingSection = (
+    positiveLabs: string[] | undefined, 
+    negativeLabs: string[] | undefined,
+    positiveImaging: string[] | undefined,
+    negativeImaging: string[] | undefined
+  ) => {
+    const hasLabs = (positiveLabs && positiveLabs.length > 0) || (negativeLabs && negativeLabs.length > 0)
+    const hasImaging = (positiveImaging && positiveImaging.length > 0) || (negativeImaging && negativeImaging.length > 0)
+
+    if (!hasLabs && !hasImaging) {
+      return (
+        <div className="flex items-center gap-2 text-gray-500 italic">
+          <IconInfoCircle className="h-4 w-4" />
+          <span className="text-sm">No lab or imaging results recorded</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-6">
+        {hasLabs && (
+          <div>
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+              <IconMicroscope className="h-4 w-4" />
+              Lab Results
+            </h4>
+            <div className="space-y-3">
+              {positiveLabs && positiveLabs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <IconCheck className="h-3 w-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">Positive</span>
+                  </div>
+                  {renderPillList(positiveLabs, '', 'positive')}
+                </div>
+              )}
+              {negativeLabs && negativeLabs.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <IconX className="h-3 w-3 text-red-600" />
+                    <span className="text-xs font-medium text-red-700">Negative</span>
+                  </div>
+                  {renderPillList(negativeLabs, '', 'negative')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {hasImaging && (
+          <div>
+            <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+              <IconScan className="h-4 w-4" />
+              Imaging Results
+            </h4>
+            <div className="space-y-3">
+              {positiveImaging && positiveImaging.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <IconCheck className="h-3 w-3 text-green-600" />
+                    <span className="text-xs font-medium text-green-700">Positive</span>
+                  </div>
+                  {renderPillList(positiveImaging, '', 'positive')}
+                </div>
+              )}
+              {negativeImaging && negativeImaging.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <IconX className="h-3 w-3 text-red-600" />
+                    <span className="text-xs font-medium text-red-700">Negative</span>
+                  </div>
+                  {renderPillList(negativeImaging, '', 'negative')}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Legacy function for backward compatibility
+  const renderArrayField = (items: string[] | undefined, emptyMessage: string) => {
+    return renderPillList(items, emptyMessage, 'default')
   }
 
   if (loading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Loading Appointment</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-32">
             <IconLoader2 className="h-6 w-6 animate-spin" />
             <span className="ml-2">Loading appointment details...</span>
@@ -133,6 +279,9 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Appointment Not Found</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-32">
             <p className="text-gray-600">Appointment not found</p>
           </div>
@@ -225,7 +374,7 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  {renderArrayField(appointment.conditions, 'No conditions recorded')}
+                  {renderPillList(appointment.conditions, 'No conditions recorded', 'default')}
                 </AccordionContent>
               </AccordionItem>
             )}
@@ -239,19 +388,8 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
                     Symptoms
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="space-y-4">
-                  {appointment.positive_symptoms && appointment.positive_symptoms.length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-sm text-green-700 mb-2">Positive Symptoms</h4>
-                      {renderArrayField(appointment.positive_symptoms, 'No positive symptoms recorded')}
-                    </div>
-                  )}
-                  {appointment.negative_symptoms && appointment.negative_symptoms.length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-sm text-red-700 mb-2">Negative Symptoms</h4>
-                      {renderArrayField(appointment.negative_symptoms, 'No negative symptoms recorded')}
-                    </div>
-                  )}
+                <AccordionContent>
+                  {renderSymptomSection(appointment.positive_symptoms, appointment.negative_symptoms)}
                 </AccordionContent>
               </AccordionItem>
             ) : null}
@@ -261,21 +399,27 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
               <AccordionItem value="treatments" className="border-b last:border-b-0">
                 <AccordionTrigger className="font-semibold text-sm">
                   <div className="flex items-center gap-2">
-                    <IconPill className="h-4 w-4" />
+                    <IconBrain className="h-4 w-4" />
                     Treatments
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4">
                   {appointment.medications && appointment.medications.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Medications</h4>
-                      {renderArrayField(appointment.medications, 'No medications recorded')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconPill className="h-4 w-4" />
+                        Medications
+                      </h4>
+                      {renderPillList(appointment.medications, 'No medications recorded', 'default')}
                     </div>
                   )}
                   {appointment.procedures && appointment.procedures.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Procedures</h4>
-                      {renderArrayField(appointment.procedures, 'No procedures recorded')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconScan className="h-4 w-4" />
+                        Procedures
+                      </h4>
+                      {renderPillList(appointment.procedures, 'No procedures recorded', 'neutral')}
                     </div>
                   )}
                 </AccordionContent>
@@ -293,47 +437,13 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
                     Labs & Imaging
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="space-y-4">
-                  {(appointment.positive_lab_results && appointment.positive_lab_results.length > 0) || 
-                   (appointment.negative_lab_results && appointment.negative_lab_results.length > 0) ? (
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Lab Results</h4>
-                      <div className="space-y-2">
-                        {appointment.positive_lab_results && appointment.positive_lab_results.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-medium text-green-700">Positive</h5>
-                            {renderArrayField(appointment.positive_lab_results, 'No positive lab results')}
-                          </div>
-                        )}
-                        {appointment.negative_lab_results && appointment.negative_lab_results.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-medium text-red-700">Negative</h5>
-                            {renderArrayField(appointment.negative_lab_results, 'No negative lab results')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-                  {(appointment.positive_imaging_results && appointment.positive_imaging_results.length > 0) || 
-                   (appointment.negative_imaging_results && appointment.negative_imaging_results.length > 0) ? (
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Imaging Results</h4>
-                      <div className="space-y-2">
-                        {appointment.positive_imaging_results && appointment.positive_imaging_results.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-medium text-green-700">Positive</h5>
-                            {renderArrayField(appointment.positive_imaging_results, 'No positive imaging results')}
-                          </div>
-                        )}
-                        {appointment.negative_imaging_results && appointment.negative_imaging_results.length > 0 && (
-                          <div>
-                            <h5 className="text-xs font-medium text-red-700">Negative</h5>
-                            {renderArrayField(appointment.negative_imaging_results, 'No negative imaging results')}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
+                <AccordionContent>
+                  {renderLabImagingSection(
+                    appointment.positive_lab_results,
+                    appointment.negative_lab_results,
+                    appointment.positive_imaging_results,
+                    appointment.negative_imaging_results
+                  )}
                 </AccordionContent>
               </AccordionItem>
             ) : null}
@@ -350,14 +460,20 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
                 <AccordionContent className="space-y-4">
                   {appointment.past_diagnoses && appointment.past_diagnoses.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Past Diagnoses</h4>
-                      {renderArrayField(appointment.past_diagnoses, 'No past diagnoses recorded')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconBrain className="h-4 w-4" />
+                        Past Diagnoses
+                      </h4>
+                      {renderPillList(appointment.past_diagnoses, 'No past diagnoses recorded', 'neutral')}
                     </div>
                   )}
                   {appointment.past_surgeries && appointment.past_surgeries.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Past Surgeries</h4>
-                      {renderArrayField(appointment.past_surgeries, 'No past surgeries recorded')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconScissors className="h-4 w-4" />
+                        Past Surgeries
+                      </h4>
+                      {renderPillList(appointment.past_surgeries, 'No past surgeries recorded', 'neutral')}
                     </div>
                   )}
                 </AccordionContent>
@@ -367,10 +483,13 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
             {appointment.family_history && appointment.family_history.length > 0 && (
               <AccordionItem value="family_history" className="border-b last:border-b-0">
                 <AccordionTrigger className="font-semibold text-sm">
-                  Family History
+                  <div className="flex items-center gap-2">
+                    <IconUser className="h-4 w-4" />
+                    Family History
+                  </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  {renderArrayField(appointment.family_history, 'No family history recorded')}
+                  {renderPillList(appointment.family_history, 'No family history recorded', 'neutral')}
                 </AccordionContent>
               </AccordionItem>
             )}
@@ -387,14 +506,20 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
                 <AccordionContent className="space-y-4">
                   {appointment.positive_lifestyle_factors && appointment.positive_lifestyle_factors.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm text-green-700 mb-2">Positive Lifestyle Factors</h4>
-                      {renderArrayField(appointment.positive_lifestyle_factors, 'No positive lifestyle factors')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconCheck className="h-4 w-4 text-green-600" />
+                        Positive Lifestyle Factors
+                      </h4>
+                      {renderPillList(appointment.positive_lifestyle_factors, 'No positive lifestyle factors', 'positive')}
                     </div>
                   )}
                   {appointment.negative_lifestyle_factors && appointment.negative_lifestyle_factors.length > 0 && (
                     <div>
-                      <h4 className="font-medium text-sm text-red-700 mb-2">Negative Lifestyle Factors</h4>
-                      {renderArrayField(appointment.negative_lifestyle_factors, 'No negative lifestyle factors')}
+                      <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                        <IconX className="h-4 w-4 text-red-600" />
+                        Negative Lifestyle Factors
+                      </h4>
+                      {renderPillList(appointment.negative_lifestyle_factors, 'No negative lifestyle factors', 'negative')}
                     </div>
                   )}
                 </AccordionContent>
@@ -405,9 +530,12 @@ export function ViewAppointmentDialog({ appointmentId, open, onOpenChange }: Vie
           {/* Extraction Notes */}
           {appointment.extraction_notes && appointment.extraction_notes.length > 0 && (
             <div className="space-y-2">
-              <h3 className="font-semibold">Extraction Notes</h3>
+              <h3 className="font-semibold flex items-center gap-2">
+                <IconInfoCircle className="h-4 w-4" />
+                Extraction Notes
+              </h3>
               <div className="p-4 bg-gray-50 rounded-lg">
-                {renderArrayField(appointment.extraction_notes, 'No extraction notes')}
+                {renderPillList(appointment.extraction_notes, 'No extraction notes', 'neutral')}
               </div>
             </div>
           )}
