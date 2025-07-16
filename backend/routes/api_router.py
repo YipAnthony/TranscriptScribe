@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 import logging
-from dependencies import get_transcript_handler, get_clinical_trial_handler
+from dependencies import get_transcript_handler, get_clinical_trial_handler, get_chat_service
 from schemas.transcript import TranscriptUploadRequest, TranscriptResponse, FakeTranscriptResponse
 from schemas.clinical_trial import (
     CreateClinicalTrialRecommendationsRequest,
@@ -9,7 +9,10 @@ from schemas.clinical_trial import (
     GetClinicalTrialRequest,
     GetClinicalTrialResponse,
 )
+from schemas.chat import ChatMessageRequest, ChatMessageResponse
 from auth import require_auth
+from handlers import chat
+from handlers.chat import ChatHandler
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +78,11 @@ async def get_clinical_trial(
     return await clinical_trial_handler.handle_get_clinical_trial(request)
 
 # Note: Exception handling is done at the app level in main.py 
+api_router.include_router(chat.router) 
+
+@api_router.post("/chat/send-message", response_model=ChatMessageResponse)
+async def send_chat_message(
+    request: ChatMessageRequest,
+    chat_handler: ChatHandler = Depends(lambda: ChatHandler(get_chat_service())),
+):
+    return await chat_handler.send_message(request) 

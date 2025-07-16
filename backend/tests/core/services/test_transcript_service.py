@@ -44,6 +44,13 @@ class DummyDBAdapter(DatabasePort):
         pass
     def get_transcript_recommendations(self, transcript_id):
         return None
+    # Add missing abstract methods for chat
+    def get_chat_session(self, session_id):
+        pass
+    def get_chat_messages(self, session_id, limit=4):
+        return []
+    def create_chat_message(self, session_id, sender, message, created_at, metadata={}):
+        pass
 
 class DummyLLMAdapter(LLMPort):
     def call_llm_json(self, prompt, temperature=0.1, max_tokens=4096):

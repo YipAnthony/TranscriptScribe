@@ -4,6 +4,8 @@ from domain.parsed_transcript import ParsedTranscript
 from domain.patient import Patient
 from domain.clinical_trial import ClinicalTrial
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
+from domain.chat_session import ChatSession
+from domain.chat_message import ChatMessage
 
 class DatabasePort(ABC):
     # Patient methods
@@ -165,5 +167,44 @@ class DatabasePort(ABC):
             
         Returns:
             Optional[Dict[str, List[str]]]: Dictionary with 'eligible_trial_ids' and 'uncertain_trial_ids' lists, or None if not found
+        """
+        pass 
+
+    # Chat methods
+    @abstractmethod
+    def get_chat_session(self, session_id: str) -> ChatSession:
+        """
+        Get chat session by ID
+        Args:
+            session_id: Unique identifier for the chat session
+        Returns:
+            ChatSession: Chat session domain object
+        """
+        pass
+
+    @abstractmethod
+    def get_chat_messages(self, session_id: str, limit: int = 4) -> List[ChatMessage]:
+        """
+        Get the most recent chat messages for a session
+        Args:
+            session_id: Chat session ID
+            limit: Number of messages to fetch (default 4)
+        Returns:
+            List[ChatMessage]: List of chat message domain objects, ordered oldest to newest
+        """
+        pass 
+
+    @abstractmethod
+    def create_chat_message(self, session_id: str, sender: str, message: str, created_at: str, metadata: dict = {}) -> ChatMessage:
+        """
+        Create a new chat message record
+        Args:
+            session_id: Chat session ID
+            sender: 'user' or 'bot'
+            message: Message text
+            created_at: Timestamp
+            metadata: Optional metadata dict
+        Returns:
+            ChatMessage: The created chat message domain object
         """
         pass 

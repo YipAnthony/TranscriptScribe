@@ -11,6 +11,8 @@ from domain.address import Address
 from domain.patient import Patient
 from domain.clinical_trial import ClinicalTrial, Location
 from domain.exceptions import PatientNotFoundError, TranscriptNotFoundError
+from domain.chat_session import ChatSession
+from domain.chat_message import ChatMessage
 
 logger = logging.getLogger(__name__)
 
@@ -482,3 +484,80 @@ class SupabaseAdapter(DatabasePort):
             brief_summary=self._clean_text(str(row.get("brief_summary", ""))),
             interventions=[]  # Not stored in simplified schema
         )
+    
+    # Chat methods
+    def _row_to_chat_session(self, row: dict) -> ChatSession:
+        return ChatSession(
+            id=row["id"],
+            patient_id=row["patient_id"],
+            clinical_trial_id=row["clinical_trial_id"],
+            status=row.get("status", "active"),
+            title=row.get("title"),
+            created_at=row.get("created_at"),
+            updated_at=row.get("updated_at"),
+        )
+
+    def _row_to_chat_message(self, row: dict) -> ChatMessage:
+        return ChatMessage(
+            id=row["id"],
+            session_id=row["session_id"],
+            sender=row["sender"],
+            message=row["message"],
+            metadata=row.get("metadata"),
+            created_at=row.get("created_at"),
+        )
+
+    def get_chat_session(self, session_id: str) -> ChatSession:
+        """
+        Get chat session by ID
+        """
+        try:
+            result = self.client.table("chat_sessions").select("*").eq("id", session_id).single().execute()
+            if result.data:
+                return self._row_to_chat_session(result.data)
+            else:
+                raise Exception(f"Chat session with ID {session_id} not found")
+        except Exception as e:
+            logger.error(f"Error getting chat session {session_id}: {e}")
+            raise
+
+    def get_chat_messages(self, session_id: str, limit: int = 4) -> List[ChatMessage]:
+        """
+        Get the most recent chat messages for a session, ordered oldest to newest
+        """
+        try:
+            result = (
+                self.client.table("chat_messages")
+                .select("*")
+                .eq("session_id", session_id)
+                .order("created_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            messages = result.data or []
+            # Return in chronological order (oldest to newest)
+            return [self._row_to_chat_message(row) for row in reversed(messages)]
+        except Exception as e:
+            logger.error(f"Error getting chat messages for session {session_id}: {e}")
+            raise
+
+    def create_chat_message(self, session_id: str, sender: str, message: str, created_at: str, metadata: dict = {}) -> ChatMessage:
+        """
+        Create a new chat message record
+        """
+        try:
+            row = {
+                "session_id": session_id,
+                "sender": sender,
+                "message": message,
+                "created_at": created_at,
+                "metadata": metadata or {},
+            }
+            result = self.client.table("chat_messages").insert(row).execute()
+            if result.data:
+                return self._row_to_chat_message(result.data[0])
+            else:
+                raise Exception("Failed to create chat message - no data returned")
+        except Exception as e:
+            logger.error(f"Error creating chat message: {e}")
+            raise
