@@ -97,4 +97,39 @@ def test_get_transcript():
     service = TranscriptService(db_adapter=db_adapter, llm_adapter=llm_adapter)
     parsed = service.get_transcript("transcript-123")
     assert isinstance(parsed, ParsedTranscript)
-    assert parsed.conditions == ["test"] 
+    assert parsed.conditions == ["test"]
+
+def test_generate_fake_transcript_success():
+    db_adapter = DummyDBAdapter()
+    llm_adapter = DummyLLMAdapter()
+    service = TranscriptService(db_adapter=db_adapter, llm_adapter=llm_adapter)
+    
+    # Mock the LLM response for fake transcript generation
+    def mock_call_llm(prompt, **kwargs):
+        mock_response = Mock()
+        mock_response.content = "**Dr. Smith:** Good morning, John. How have you been feeling?\n\n**John Doe:** Good morning, Doctor. I've been doing well..."
+        return mock_response
+    
+    service.llm_adapter.call_llm = mock_call_llm
+    
+    # Mock patient data
+    from domain.patient import Patient
+    from datetime import date
+    
+    def mock_get_patient(patient_id):
+        return Patient(
+            id="patient-1",
+            first_name="John",
+            last_name="Doe",
+            date_of_birth=date(1980, 1, 1),
+            sex="MALE",
+            city="New York",
+            state="NY"
+        )
+    
+    service.db_adapter.get_patient = mock_get_patient
+    
+    result = service.generate_fake_transcript("patient-1")
+    assert isinstance(result, str)
+    assert "Dr. Smith" in result
+    assert "John Doe" in result 

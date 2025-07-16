@@ -33,6 +33,33 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         self.client = httpx.AsyncClient(timeout=timeout)
         logger.info(f"Initialized CTG API v{self.VERSION} adapter")
     
+    def _convert_state_abbreviation_to_full_name(self, state_abbr: str) -> str:
+        """
+        Convert state abbreviation to full name for ClinicalTrials.gov API
+        
+        Args:
+            state_abbr: State abbreviation (e.g., "TX", "CA")
+            
+        Returns:
+            str: Full state name (e.g., "Texas", "California")
+        """
+        state_mapping = {
+            "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+            "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+            "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+            "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+            "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+            "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey",
+            "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+            "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+            "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+            "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"
+        }
+        
+        # Convert to uppercase and look up
+        state_abbr_upper = state_abbr.upper().strip()
+        return state_mapping.get(state_abbr_upper, state_abbr)  # Return original if not found
+    
     async def __aenter__(self):
         """Async context manager entry"""
         return self
@@ -195,26 +222,15 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
         # Always include USA in the search
         location_queries.append('AREA[LocationCountry]"United States"')
         
-        # If patient has specific location data, add it to the search
-        if patient.address:
-            lat = getattr(patient.address, "latitude", None)
-            lon = getattr(patient.address, "longitude", None)
-            
-            # If lat/lon available, use geo filter with expanded range
-            if lat and lon:
-                params["filter.geo"] = f"distance({lat},{lon},500mi)"
-            else:
-                # Add specific location queries if available
-                if patient.address.city:
-                    location_queries.append(f'AREA[LocationCity]"{patient.address.city}"')
-                if patient.address.state:
-                    location_queries.append(f'AREA[LocationState]"{patient.address.state}"')
-                if patient.address.zip_code:
-                    location_queries.append(f'AREA[LocationZip]"{patient.address.zip_code}"')
+        # If patient has specific location data, add state to the search (but not city for flexibility)
+        if patient.address and patient.address.state:
+            # Convert state abbreviation to full name for ClinicalTrials.gov API
+            full_state_name = self._convert_state_abbreviation_to_full_name(patient.address.state)
+            location_queries.append(f'AREA[LocationState]"{full_state_name}"')
         
         # Always add location filter for USA
         if location_queries:
-            # Use AND logic for location to be more restrictive
+            # Use SEARCH[Location] to ensure both country and state criteria are applied within the same location record
             location_query = f"SEARCH[Location]({' AND '.join(location_queries)})"
             advanced_filters.append(location_query)
         

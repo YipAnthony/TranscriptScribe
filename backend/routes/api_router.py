@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 import logging
 from dependencies import get_transcript_handler, get_clinical_trial_handler
-from schemas.transcript import TranscriptUploadRequest, TranscriptResponse
+from schemas.transcript import TranscriptUploadRequest, TranscriptResponse, FakeTranscriptResponse
 from schemas.clinical_trial import (
     CreateClinicalTrialRecommendationsRequest,
     CreateClinicalTrialRecommendationsResponse,
@@ -26,6 +26,7 @@ async def health_check() -> Dict[str, Any]:
         "version": "1.0.0",
         "endpoints": {
             "transcripts": "/api/v1/transcripts",
+            "generate-fake-transcript": "/api/v1/transcripts/generate-fake/{patient_id}",
             "clinical-trials": "/api/v1/clinical-trials"
         }
     }
@@ -35,18 +36,28 @@ async def health_check() -> Dict[str, Any]:
 async def process_transcript(
     request: TranscriptUploadRequest,
     transcript_handler = Depends(get_transcript_handler),
-    _ = Depends(require_auth)  # Verify JWT but don't use user info
+    _ = Depends(require_auth)  
 ) -> TranscriptResponse:
     """Process a transcript"""
     logger.info(f"Processing transcript for patient: {request.patient_id}")
     return transcript_handler.process_transcript(request)
+
+@api_router.post("/transcripts/generate-fake/{patient_id}", response_model=FakeTranscriptResponse)
+async def generate_fake_transcript(
+    patient_id: str,
+    transcript_handler = Depends(get_transcript_handler),
+    _ = Depends(require_auth)  
+) -> FakeTranscriptResponse:
+    """Generate a fake transcript for a patient"""
+    logger.info(f"Generating fake transcript for patient: {patient_id}")
+    return transcript_handler.generate_fake_transcript(patient_id)
 
 # Clinical trial endpoints
 @api_router.post("/clinical-trials/recommendations", response_model=CreateClinicalTrialRecommendationsResponse)
 async def create_clinical_trial_recommendations(
     request: CreateClinicalTrialRecommendationsRequest,
     clinical_trial_handler = Depends(get_clinical_trial_handler),
-    _ = Depends(require_auth)  # Verify JWT but don't use user info
+    _ = Depends(require_auth) 
 ) -> CreateClinicalTrialRecommendationsResponse:
     """Create clinical trial recommendations"""
     logger.info(f"Creating clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
@@ -56,7 +67,7 @@ async def create_clinical_trial_recommendations(
 async def get_clinical_trial(
     trial_id: str,
     clinical_trial_handler = Depends(get_clinical_trial_handler),
-    _ = Depends(require_auth)  # Verify JWT but don't use user info
+    _ = Depends(require_auth) 
 ) -> GetClinicalTrialResponse:
     """Get a specific clinical trial by ID"""
     logger.info(f"Getting clinical trial details for ID: {trial_id}")

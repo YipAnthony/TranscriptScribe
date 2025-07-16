@@ -16,4 +16,10 @@ class TranscriptResponse(BaseModel):
 
 class TranscriptAnalysisRequest(BaseModel):
     """API request for analyzing a transcript (async)"""
-    transcript_id: str 
+    transcript_id: str
+
+class FakeTranscriptResponse(BaseModel):
+    """API response for fake transcript generation"""
+    status: str
+    error: Optional[str] = None
+    fake_transcript: Optional[str] = None 

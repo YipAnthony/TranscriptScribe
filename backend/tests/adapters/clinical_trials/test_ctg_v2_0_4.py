@@ -395,3 +395,27 @@ class TestCTGV2_0_4Adapter:
         assert result.phases == []
         assert result.locations == []
         assert result.interventions == [] 
+
+def test_state_abbreviation_conversion():
+    """Test state abbreviation to full name conversion"""
+    adapter = CTGV2_0_4Adapter()
+    
+    # Test common state abbreviations
+    assert adapter._convert_state_abbreviation_to_full_name("TX") == "Texas"
+    assert adapter._convert_state_abbreviation_to_full_name("CA") == "California"
+    assert adapter._convert_state_abbreviation_to_full_name("NY") == "New York"
+    assert adapter._convert_state_abbreviation_to_full_name("FL") == "Florida"
+    assert adapter._convert_state_abbreviation_to_full_name("TX") == "Texas"
+    
+    # Test case insensitivity
+    assert adapter._convert_state_abbreviation_to_full_name("tx") == "Texas"
+    assert adapter._convert_state_abbreviation_to_full_name("Tx") == "Texas"
+    
+    # Test with whitespace
+    assert adapter._convert_state_abbreviation_to_full_name(" TX ") == "Texas"
+    
+    # Test unknown abbreviation (should return original)
+    assert adapter._convert_state_abbreviation_to_full_name("XX") == "XX"
+    assert adapter._convert_state_abbreviation_to_full_name("") == ""
+    
+    print("✅ State abbreviation conversion test PASSED") 

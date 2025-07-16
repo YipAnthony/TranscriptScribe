@@ -19,7 +19,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask } from "@tabler/icons-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask, IconTrash } from "@tabler/icons-react"
 import { apiClient } from '@/lib/api-client'
 import { ViewAppointmentDialog } from "@/components/view-appointment-dialog"
 import { ViewRecommendedTrialsDialog } from "@/components/view-recommended-trials-dialog"
@@ -34,6 +42,7 @@ interface Appointment {
   created_at: string
   updated_at: string
   clinical_trials_count?: number
+  conditions?: string[]
 }
 
 interface AppointmentsTableProps {
@@ -58,6 +67,9 @@ export function AppointmentsTable({
   const [viewTrialsDialogOpen, setViewTrialsDialogOpen] = useState(false)
   const [savedTrials, setSavedTrials] = useState<Set<string>>(new Set())
   const [savingTrial, setSavingTrial] = useState<string | null>(null)
+  const [deletingAppointment, setDeletingAppointment] = useState<string | null>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null)
 
   useEffect(() => {
     fetchAppointments()
@@ -150,6 +162,34 @@ export function AppointmentsTable({
     setViewTrialsDialogOpen(true)
   }
 
+  const handleDeleteClick = (appointment: Appointment) => {
+    setAppointmentToDelete(appointment)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!appointmentToDelete) return
+    
+    setDeletingAppointment(appointmentToDelete.id)
+    try {
+      await apiClient.deleteAppointment(appointmentToDelete.id)
+      toast.success('Appointment deleted successfully')
+      fetchAppointments() // Refresh the list
+      setDeleteConfirmOpen(false)
+      setAppointmentToDelete(null)
+    } catch (err) {
+      console.error('Error deleting appointment:', err)
+      toast.error('Failed to delete appointment. Please try again.')
+    } finally {
+      setDeletingAppointment(null)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false)
+    setAppointmentToDelete(null)
+  }
+
   const getClinicalTrialsBadge = (count: number) => {
     if (count === 0) {
       return <Badge variant="outline" className="text-gray-500">No Trials Recommended</Badge>
@@ -161,6 +201,37 @@ export function AppointmentsTable({
       return <Badge className="bg-yellow-100 text-yellow-800">{count} Potential Trials</Badge>
     }
     return <Badge className="bg-blue-100 text-blue-800">{count} Potential Trials</Badge>
+  }
+
+  const formatConditions = (conditions: string[] | undefined) => {
+    if (!conditions || conditions.length === 0) {
+      return <span className="text-gray-500 italic">No conditions recorded</span>
+    }
+    
+    if (conditions.length <= 2) {
+      return (
+        <div className="flex flex-wrap gap-1">
+          {conditions.map((condition, index) => (
+            <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              {condition}
+            </Badge>
+          ))}
+        </div>
+      )
+    }
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {conditions.slice(0, 2).map((condition, index) => (
+          <Badge key={index} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+            {condition}
+          </Badge>
+        ))}
+        <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 border-gray-200">
+          +{conditions.length - 2} more
+        </Badge>
+      </div>
+    )
   }
 
   if (loading) {
@@ -205,7 +276,7 @@ export function AppointmentsTable({
             <TableRow>
               {showPatientColumn && <TableHead>Patient</TableHead>}
               <TableHead>Appointment Date</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Conditions</TableHead>
               <TableHead>Clinical Trials</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -220,7 +291,9 @@ export function AppointmentsTable({
                   </TableCell>
                 )}
                 <TableCell>{formatDateTime(appointment.recorded_at)}</TableCell>
-                <TableCell>{getStatusBadge(appointment.status)}</TableCell>
+                <TableCell>
+                  {formatConditions(appointment.conditions)}
+                </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <IconFlask className="h-4 w-4 text-gray-500" />
@@ -245,6 +318,14 @@ export function AppointmentsTable({
                         <IconFlask className="mr-2 h-4 w-4" />
                         View Recommended Trials
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteClick(appointment)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <IconTrash className="mr-2 h-4 w-4" />
+                        Delete Appointment
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -267,6 +348,37 @@ export function AppointmentsTable({
         patientId={patientId}
         isPatientView={isPatientView}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Appointment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this appointment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleDeleteCancel} disabled={deletingAppointment === appointmentToDelete?.id}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteConfirm}
+              disabled={deletingAppointment === appointmentToDelete?.id}
+            >
+              {deletingAppointment === appointmentToDelete?.id ? (
+                <>
+                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Appointment'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 } 

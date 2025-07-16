@@ -248,7 +248,8 @@ class ApiClient {
         patient_name: transcript.patients 
           ? `${transcript.patients.first_name} ${transcript.patients.last_name}`
           : 'Unknown Patient',
-        clinical_trials_count: totalTrials
+        clinical_trials_count: totalTrials,
+        conditions: transcript.conditions || []
       }
     })
   }
@@ -268,6 +269,15 @@ class ApiClient {
         ? `${data.patients.first_name} ${data.patients.last_name}`
         : 'Unknown Patient'
     }
+  }
+
+  async deleteAppointment(appointmentId: string): Promise<void> {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('transcripts')
+      .delete()
+      .eq('id', appointmentId)
+    if (error) throw error
   }
 
   async getPatientsForSelect(): Promise<{ id: string, first_name: string, last_name: string }[]> {
@@ -567,6 +577,22 @@ class ApiClient {
         notes
       })
     return { error }
+  }
+
+  /**
+   * Generate a fake patient-doctor conversation transcript for a given patient.
+   * @param patientId The patient ID
+   * @returns The generated conversation as a string (markdown)
+   */
+  async generateFakeTranscript(patientId: string): Promise<string> {
+    const response = await this.request<{ fake_transcript: string; error?: string }>(
+      `/api/v1/transcripts/generate-fake/${patientId}`,
+      {
+        method: 'POST',
+      }
+    )
+    if (response.error) throw new Error(response.error)
+    return response.data?.fake_transcript || ''
   }
 }
 
