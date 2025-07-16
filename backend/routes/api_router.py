@@ -84,5 +84,6 @@ api_router.include_router(chat.router)
 async def send_chat_message(
     request: ChatMessageRequest,
     chat_handler: ChatHandler = Depends(lambda: ChatHandler(get_chat_service())),
+    _ = Depends(require_auth) 
 ):
     return await chat_handler.send_message(request) 
