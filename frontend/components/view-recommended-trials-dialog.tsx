@@ -17,6 +17,8 @@ import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { ClinicalTrial, ClinicalTrialDetails, TranscriptRecommendations } from "@/types"
 import { toast } from "sonner"
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from '@/components/ui/drawer'
+import { IconMessage } from '@tabler/icons-react'
 
 interface ViewRecommendedTrialsDialogProps {
     appointmentId: string | null
@@ -70,6 +72,9 @@ export function ViewRecommendedTrialsDialog({
   const [selectedTrialForSuggestion, setSelectedTrialForSuggestion] = useState<ClinicalTrial | null>(null)
   const [suggestionNotes, setSuggestionNotes] = useState("")
   
+  // Drawer state
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
+
   useEffect(() => {
     if (open && appointmentId) {
       fetchRecommendations()
@@ -478,6 +483,18 @@ export function ViewRecommendedTrialsDialog({
             <h3 className="font-semibold text-lg">{selectedTrialDetails.brief_title}</h3>
             <p className="text-sm text-gray-600">NCT ID: {selectedTrialDetails.external_id}</p>
           </div>
+          {/* Chat Drawer Trigger (only for patient view) */}
+          {isPatientView && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto flex items-center gap-2"
+              onClick={() => setChatDrawerOpen(true)}
+            >
+              <IconMessage className="h-4 w-4" />
+              Chat with AI Bot
+            </Button>
+          )}
         </div>
 
         {/* Basic Information */}
@@ -996,7 +1013,7 @@ export function ViewRecommendedTrialsDialog({
   if (viewMode === 'details' && selectedTrialDetails) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`sm:max-w-[800px] max-h-[90vh] overflow-y-auto transition-transform duration-300 ${chatDrawerOpen ? 'translate-x-[-80px]' : ''}`}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <IconFlask className="h-5 w-5" />

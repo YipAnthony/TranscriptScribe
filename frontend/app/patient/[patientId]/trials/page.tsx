@@ -67,7 +67,7 @@ interface ProviderRecommendedTrial {
 
 export default function PatientTrialsPage() {
   const router = useRouter()
-  const params = useParams() as { patientId?: string }
+  const params = useParams() as { patientId: string }
   const { patientId } = params
 
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
@@ -97,7 +97,7 @@ export default function PatientTrialsPage() {
   const fetchPatientData = async () => {
     try {
       setLoading(true)
-      const patient = await apiClient.getPatientById(patientId!)
+      const patient = await apiClient.getPatientById(patientId)
       setSelectedPatient(patient)
       if (patient) {
         await fetchPatientTrials(patient.id)

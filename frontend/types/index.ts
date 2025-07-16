@@ -113,4 +113,23 @@ export interface GetClinicalTrialResponse {
   status: string;
   message: string;
   trial: ClinicalTrialDetails | null;
+}
+
+export interface ChatSession {
+  id: string
+  patient_id: string
+  clinical_trial_id: string
+  status: string
+  title?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ChatMessage {
+  id: string
+  session_id: string
+  sender: 'user' | 'bot'
+  message: string
+  metadata?: any
+  created_at: string
 } 

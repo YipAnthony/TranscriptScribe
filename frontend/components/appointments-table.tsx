@@ -30,7 +30,7 @@ import {
 import { IconEye, IconLoader2, IconCalendar, IconDots, IconFlask, IconTrash } from "@tabler/icons-react"
 import { apiClient } from '@/lib/api-client'
 import { ViewAppointmentDialog } from "@/components/view-appointment-dialog"
-import { ViewRecommendedTrialsDialog } from "@/components/view-recommended-trials-dialog"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
 interface Appointment {
@@ -58,6 +58,7 @@ export function AppointmentsTable({
   showPatientColumn = true,
   isPatientView = false 
 }: AppointmentsTableProps) {
+  const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -158,8 +159,9 @@ export function AppointmentsTable({
   }
 
   const handleViewRecommendedTrials = (appointmentId: string) => {
-    setSelectedTrialsAppointmentId(appointmentId)
-    setViewTrialsDialogOpen(true)
+    if (patientId) {
+      router.push(`/patient/${patientId}/appointments/${appointmentId}/trials`)
+    }
   }
 
   const handleDeleteClick = (appointment: Appointment) => {
@@ -341,13 +343,7 @@ export function AppointmentsTable({
         onOpenChange={setViewDialogOpen}
       />
 
-      <ViewRecommendedTrialsDialog
-        appointmentId={selectedTrialsAppointmentId}
-        open={viewTrialsDialogOpen}
-        onOpenChange={setViewTrialsDialogOpen}
-        patientId={patientId}
-        isPatientView={isPatientView}
-      />
+      {/* Remove ViewRecommendedTrialsDialog, navigation now handled by router */}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

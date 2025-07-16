@@ -22,23 +22,31 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const patientNavItems = [
-  {
-    title: "Appointments",
-    url: "/patient/appointments",
-    icon: IconCalendar,
-  },
-  {
-    title: "Clinical Trials",
-    url: "/patient/trials",
-    icon: IconChartBar,
-  },
-]
-
 export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+
+  // Extract patient ID from current path
+  const getPatientIdFromPath = () => {
+    const match = pathname.match(/\/patient\/([^\/]+)/)
+    return match ? match[1] : null
+  }
+
+  const patientId = getPatientIdFromPath()
+
+  const patientNavItems = [
+    {
+      title: "Appointments",
+      url: patientId ? `/patient/${patientId}/appointments` : "/patient/appointments",
+      icon: IconCalendar,
+    },
+    {
+      title: "Clinical Trials",
+      url: patientId ? `/patient/${patientId}/trials` : "/patient/trials",
+      icon: IconChartBar,
+    },
+  ]
 
   const handleSignOut = async () => {
     await signOut()

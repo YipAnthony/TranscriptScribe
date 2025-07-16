@@ -7,6 +7,7 @@ import type { Transcript } from '../types'
 import type { TranscriptRecommendations } from '../types'
 import type { ClinicalTrial } from '../types'
 import type { ClinicalTrialDetails, GetClinicalTrialResponse } from '@/types'
+import type { ChatSession, ChatMessage } from '../types'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
@@ -593,6 +594,65 @@ class ApiClient {
     )
     if (response.error) throw new Error(response.error)
     return response.data?.fake_transcript || ''
+  }
+
+  // CHAT SESSION & MESSAGES
+  /**
+   * Get a chat session for a patient and clinical trial (if exists)
+   */
+  async getChatSession(patientId: string, clinicalTrialId: string): Promise<ChatSession | null> {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('patient_id', patientId)
+      .eq('clinical_trial_id', clinicalTrialId)
+      .single()
+    if (error) return null
+    return data as ChatSession
+  }
+
+  /**
+   * Create a new chat session for a patient and clinical trial
+   */
+  async createChatSession(patientId: string, clinicalTrialId: string, title?: string): Promise<ChatSession> {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .insert({ patient_id: patientId, clinical_trial_id: clinicalTrialId, title })
+      .select('*')
+      .single()
+    if (error) throw error
+    return data as ChatSession
+  }
+
+  /**
+   * Get all chat messages for a session, ordered oldest to newest
+   */
+  async getChatMessages(sessionId: string): Promise<ChatMessage[]> {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return (data || []) as ChatMessage[]
+  }
+
+  /**
+   * Send a chat message (calls backend API)
+   */
+  async sendChatMessage({ patient_id, session_id, clinical_trial_id, user_message }: {
+    patient_id: string
+    session_id: string
+    clinical_trial_id: string
+    user_message: string
+  }): Promise<ApiResponse<{ status: string }>> {
+    return this.request('/api/v1/chat/send-message', {
+      method: 'POST',
+      body: JSON.stringify({ patient_id, session_id, clinical_trial_id, user_message }),
+    })
   }
 }
 
