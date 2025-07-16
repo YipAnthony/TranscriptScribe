@@ -20,7 +20,7 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
     
     VERSION = "2.0.4"
     SOURCE_REGISTRY = SourceRegistry.CLINICALTRIALS_GOV
-    BASE_URL = "https://beta-ut.clinicaltrials.gov/api/v2"
+    BASE_URL = "https://clinicaltrials.gov/api/v2"  # Use legacy API which is more permissive
     
     def __init__(self, timeout: int = 30):
         """
@@ -97,7 +97,7 @@ class CTGV2_0_4Adapter(ClinicalTrialsPort):
                     "BriefSummary", "Intervention", "EnrollmentCount", "StartDate", 
                     "DetailedDescription", "StudyType", "CompletionDate", 
                     "PrimaryCompletionDate", "EligibilityCriteria", "Sex", "HealthyVolunteers", 
-                    "ArmGroup", "CentralContact", "OverallOfficial", "LastUpdatePostDate"
+                    "CentralContact", "OverallOfficial", "LastUpdatePostDate"
                 ]
             }
             

@@ -29,8 +29,17 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${endpoint}`
     
-    const defaultHeaders = {
+    // Get the current session to extract JWT token
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
+    }
+    
+    // Add Authorization header with JWT token if available
+    if (session?.access_token) {
+      defaultHeaders['Authorization'] = `Bearer ${session.access_token}`
     }
 
     const config: RequestInit = {

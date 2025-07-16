@@ -134,7 +134,7 @@ class TestCTGV2_0_4Adapter:
         assert adapter.client is not None
         assert adapter.VERSION == "2.0.4"
         assert adapter.SOURCE_REGISTRY == SourceRegistry.CLINICALTRIALS_GOV
-        assert adapter.BASE_URL == "https://beta-ut.clinicaltrials.gov/api/v2"
+        assert adapter.BASE_URL == "https://clinicaltrials.gov/api/v2"
     
     @pytest.mark.asyncio
     async def test_find_recommended_clinical_trials_async_success(self, ctg_adapter, sample_patient, sample_parsed_transcript, sample_trial_data):
@@ -230,12 +230,15 @@ class TestCTGV2_0_4Adapter:
         assert params["pageSize"] == 50
         assert "NCTId" in params["fields"]
         assert "BriefTitle" in params["fields"]
-        # The implementation uses query.term with AREA syntax, not query.cond
-        assert "AREA[Condition]\"Diabetes\"" in params["query.term"]
-        assert "AREA[Condition]\"Hypertension\"" in params["query.term"]
+        # Check for query.cond with conditions
+        assert "Diabetes" in params["query.cond"]
+        assert "Hypertension" in params["query.cond"]
+        # Check for query.term with interventions and date range
         assert "AREA[InterventionName]\"Metformin\"" in params["query.term"]
         assert "AREA[InterventionName]\"Lisinopril\"" in params["query.term"]
-        assert "RECRUITING" in params["filter.overallStatus"]
+        assert "AREA[LastUpdatePostDate]RANGE" in params["query.term"]
+        # Check for status filter with pipe separator
+        assert "NOT_YET_RECRUITING|RECRUITING" == params["filter.overallStatus"]
     
     def test_build_search_params_with_age_filter(self, ctg_adapter, sample_parsed_transcript):
         """Test search parameter building with age filter"""
@@ -254,8 +257,8 @@ class TestCTGV2_0_4Adapter:
         
         assert "filter.advanced" in params
         # The age calculation is dynamic based on current date, so we'll check the pattern instead
-        assert "years, MAX" in params["filter.advanced"]  # min age pattern
-        assert "MIN, " in params["filter.advanced"] and "years" in params["filter.advanced"]  # max age pattern
+        assert "years,MAX" in params["filter.advanced"]  # max age pattern (no space before MAX)
+        assert "MIN," in params["filter.advanced"] and "years" in params["filter.advanced"]  # min age pattern
     
     def test_build_search_params_with_sex_filter(self, ctg_adapter, sample_parsed_transcript):
         """Test search parameter building with sex filter"""

@@ -457,12 +457,12 @@ export default function PatientTrialsPage() {
                                 <DropdownMenuItem
                                   onClick={() => {
                                     setSelectedTrial(savedTrial.trial)
-                                    fetchTrialDetails(savedTrial.trial.external_id)
+                                    fetchTrialDetails(savedTrial.trial.id)
                                     setDetailsDialogOpen(true)
                                   }}
-                                  disabled={loadingTrialDetails.has(savedTrial.trial.external_id)}
+                                  disabled={loadingTrialDetails.has(savedTrial.trial.id)}
                                 >
-                                  {loadingTrialDetails.has(savedTrial.trial.external_id) ? (
+                                  {loadingTrialDetails.has(savedTrial.trial.id) ? (
                                     <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                                   ) : (
                                     <IconEye className="mr-2 h-4 w-4" />
@@ -600,12 +600,12 @@ export default function PatientTrialsPage() {
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedTrial(recommendation.trial)
-                                      fetchTrialDetails(recommendation.trial.external_id)
+                                      fetchTrialDetails(recommendation.trial.id)
                                       setDetailsDialogOpen(true)
                                     }}
-                                    disabled={loadingTrialDetails.has(recommendation.trial.external_id)}
+                                    disabled={loadingTrialDetails.has(recommendation.trial.id)}
                                   >
-                                    {loadingTrialDetails.has(recommendation.trial.external_id) ? (
+                                    {loadingTrialDetails.has(recommendation.trial.id) ? (
                                       <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                                     ) : (
                                       <IconEye className="mr-2 h-4 w-4" />
@@ -779,12 +779,12 @@ export default function PatientTrialsPage() {
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setSelectedTrial(recommendation.trial)
-                                        fetchTrialDetails(recommendation.trial.external_id)
+                                        fetchTrialDetails(recommendation.trial.id)
                                         setDetailsDialogOpen(true)
                                       }}
-                                      disabled={loadingTrialDetails.has(recommendation.trial.external_id)}
+                                      disabled={loadingTrialDetails.has(recommendation.trial.id)}
                                     >
-                                      {loadingTrialDetails.has(recommendation.trial.external_id) ? (
+                                      {loadingTrialDetails.has(recommendation.trial.id) ? (
                                         <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
                                       ) : (
                                         <IconEye className="mr-2 h-4 w-4" />

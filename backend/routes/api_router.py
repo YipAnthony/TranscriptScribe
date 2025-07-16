@@ -9,6 +9,7 @@ from schemas.clinical_trial import (
     GetClinicalTrialRequest,
     GetClinicalTrialResponse,
 )
+from auth import require_auth
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ async def health_check() -> Dict[str, Any]:
 @api_router.post("/transcripts", response_model=TranscriptResponse)
 async def process_transcript(
     request: TranscriptUploadRequest,
-    transcript_handler = Depends(get_transcript_handler)
+    transcript_handler = Depends(get_transcript_handler),
+    _ = Depends(require_auth)  # Verify JWT but don't use user info
 ) -> TranscriptResponse:
     """Process a transcript"""
     logger.info(f"Processing transcript for patient: {request.patient_id}")
@@ -43,7 +45,8 @@ async def process_transcript(
 @api_router.post("/clinical-trials/recommendations", response_model=CreateClinicalTrialRecommendationsResponse)
 async def create_clinical_trial_recommendations(
     request: CreateClinicalTrialRecommendationsRequest,
-    clinical_trial_handler = Depends(get_clinical_trial_handler)
+    clinical_trial_handler = Depends(get_clinical_trial_handler),
+    _ = Depends(require_auth)  # Verify JWT but don't use user info
 ) -> CreateClinicalTrialRecommendationsResponse:
     """Create clinical trial recommendations"""
     logger.info(f"Creating clinical trial recommendations for patient: {request.patient_id}, transcript: {request.transcript_id}")
@@ -52,7 +55,8 @@ async def create_clinical_trial_recommendations(
 @api_router.get("/clinical-trials/{trial_id}", response_model=GetClinicalTrialResponse)
 async def get_clinical_trial(
     trial_id: str,
-    clinical_trial_handler = Depends(get_clinical_trial_handler)
+    clinical_trial_handler = Depends(get_clinical_trial_handler),
+    _ = Depends(require_auth)  # Verify JWT but don't use user info
 ) -> GetClinicalTrialResponse:
     """Get a specific clinical trial by ID"""
     logger.info(f"Getting clinical trial details for ID: {trial_id}")
