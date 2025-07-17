@@ -47,6 +47,10 @@ class DummyDBAdapter(DatabasePort):
     # Add missing abstract methods for chat
     def get_chat_session(self, session_id):
         pass
+    def get_chat_session_by_patient_and_trial(self, patient_id, clinical_trial_id):
+        pass
+    def create_chat_session(self, patient_id, clinical_trial_id, title=None):
+        pass
     def get_chat_messages(self, session_id, limit=4):
         return []
     def create_chat_message(self, session_id, sender, message, created_at, metadata={}):
