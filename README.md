@@ -159,13 +159,13 @@ supabase migration up
 ```
 
 ### Stepup env files
-#### Frontend env
+#### Frontend env (create .env in frontend directory)
 ```
 <!-- Values can be found in the terminal you started supabse in -->
 NEXT_PUBLIC_SUPABASE_URL=updateMe
 NEXT_PUBLIC_SUPABASE_ANON_KEY=updateMe
 ```
-#### Backend env
+#### Backend env (create .env in backend directory)
 ```
 # Supabase Configuration
 <!-- Values found in terminal you ran supabase in -->
@@ -189,7 +189,6 @@ API_PORT=8000
 cd backend
 poetry install
 cp env.example .env
-# Edit .env with your actual values
 # Start the API server
 poetry run python main.py
 ```
