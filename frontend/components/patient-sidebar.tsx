@@ -9,6 +9,8 @@ import {
   IconHome,
   IconUser,
   IconCalendar,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter, usePathname } from "next/navigation"
@@ -20,12 +22,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const { state, toggleSidebar } = useSidebar()
 
   // Extract patient ID from current path
   const getPatientIdFromPath = () => {
@@ -34,6 +38,15 @@ export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar
   }
 
   const patientId = getPatientIdFromPath()
+
+  // Check if we're on a main page (appointments or trials) vs nested pages
+  const isMainPage = () => {
+    const mainPaths = [
+      `/patient/${patientId}/appointments`,
+      `/patient/${patientId}/trials`
+    ]
+    return mainPaths.some(path => pathname === path)
+  }
 
   const patientNavItems = [
     {
@@ -54,7 +67,7 @@ export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar
   }
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="px-4">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -102,6 +115,21 @@ export function PatientSidebar({ ...props }: React.ComponentProps<typeof Sidebar
           </div>
         )}
       </SidebarFooter>
+      
+      {/* Toggle button on the sidebar border - only show on main pages */}
+      {isMainPage() && (
+        <button
+          onClick={toggleSidebar}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 bg-background border border-border rounded-full p-1.5 shadow-md hover:bg-accent hover:text-accent-foreground transition-colors z-20"
+          aria-label={state === "expanded" ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {state === "expanded" ? (
+            <IconChevronLeft className="h-4 w-4" />
+          ) : (
+            <IconChevronRight className="h-4 w-4" />
+          )}
+        </button>
+      )}
     </Sidebar>
   )
 } 
