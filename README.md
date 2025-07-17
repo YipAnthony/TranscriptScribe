@@ -174,6 +174,9 @@ SUPABASE_ANON_KEY=temp
 SUPABASE_SERVICE_ROLE_KEY=temp
 SUPABASE_JWT_SECRET=your_supabase_jwt_secret_here
 
+# CTG Proxy
+CTG_PROXY_URL=http://localhost:3000/api/proxy/clinical-trials
+
 # Google Gemini Configuration
 GOOGLE_AI_API_KEY=temp
 
