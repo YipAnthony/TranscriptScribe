@@ -30,6 +30,7 @@ async def lifespan(app: FastAPI):
         from adapters.clinical_trials.ctg_v2_0_4 import CTGV2_0_4Adapter
         from core.services.transcript_service import TranscriptService
         from core.services.clinical_trial_service import ClinicalTrialService
+        from core.services.chat_service import ChatService
         from handlers.transcript import TranscriptHandler
         from handlers.clinical_trial import ClinicalTrialHandler
         
@@ -74,6 +75,11 @@ async def lifespan(app: FastAPI):
             clinical_trials_adapter=clinical_trials_adapter,
             llm_adapter=llm_adapter
         )
+        chat_service = ChatService(
+            db_port=db_adapter,
+            clinical_trials_port=clinical_trials_adapter,
+            llm_port=llm_adapter
+        )
         
         # Initialize handlers with services
         logger.info("Initializing handlers...")
@@ -83,7 +89,8 @@ async def lifespan(app: FastAPI):
         # Set dependencies for injection
         set_dependencies(
             transcript_handler=transcript_handler,
-            clinical_trial_handler=clinical_trial_handler
+            clinical_trial_handler=clinical_trial_handler,
+            chat_service=chat_service
         )
         
         logger.info("All dependencies initialized successfully")

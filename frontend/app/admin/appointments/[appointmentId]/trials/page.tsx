@@ -1,18 +1,20 @@
-"use client"
+ "use client"
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { IconLoader2, IconFlask, IconStar, IconMapPin, IconExternalLink, IconArrowLeft, IconBookmark, IconMessage, IconMessagePlus } from "@tabler/icons-react"
+import { IconLoader2, IconFlask, IconStar, IconMapPin, IconExternalLink, IconArrowLeft, IconMessagePlus } from "@tabler/icons-react"
 import { apiClient } from "@/lib/api-client"
 import ReactMarkdown from 'react-markdown'
 import type { ClinicalTrial, ClinicalTrialDetails, TranscriptRecommendations } from "@/types"
-import { TrialChatPanel } from '@/components/trial-chat-panel'
 import { Separator } from "@/components/ui/separator"
 import { useSidebar } from '@/components/ui/sidebar'
 import { toast } from "sonner"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 function unescapeText(text: string): string {
   if (!text) return text;
@@ -25,7 +27,7 @@ function unescapeText(text: string): string {
     .replace(/\\\\/g, '\\');
 }
 
-function TrialDetailsPanel({ trial, onBack, getStatusBadge, onOpenChat }: { trial: ClinicalTrial | null, onBack: () => void, getStatusBadge: (status: string) => ReactNode, onOpenChat: () => void }) {
+function TrialDetailsPanel({ trial, onBack, getStatusBadge }: { trial: ClinicalTrial | null, onBack: () => void, getStatusBadge: (status: string) => ReactNode }) {
   const [trialDetails, setTrialDetails] = useState<ClinicalTrialDetails | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   // Remove chatDrawerOpen and Drawer
@@ -60,15 +62,7 @@ function TrialDetailsPanel({ trial, onBack, getStatusBadge, onOpenChat }: { tria
             <h3 className="font-semibold text-lg text-gray-900">{trialDetails.brief_title}</h3>
             <p className="text-sm text-gray-600">NCT ID: {trialDetails.external_id}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto flex items-center gap-2"
-            onClick={onOpenChat}
-          >
-            <IconMessage className="h-4 w-4" />
-            Chat with AI Bot
-          </Button>
+          {/* Remove Chat with AI Bot button */}
         </div>
       </div>
       {/* Scrollable Content */}
@@ -382,13 +376,22 @@ function TrialDetailsPanel({ trial, onBack, getStatusBadge, onOpenChat }: { tria
               {trialDetails.locations && trialDetails.locations.length > 0 && (
                 <div className="mb-6">
                   <h5 className="font-medium text-sm text-gray-700 mb-2">Study Locations</h5>
-                  <div className="space-y-2">
-                    {trialDetails.locations.map((location, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm text-gray-700">
-                        <IconMapPin className="h-4 w-4 text-gray-500" />
-                        <span>{location}</span>
-                      </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {(showAllLocations ? trialDetails.locations : trialDetails.locations.slice(0, 3)).map((location, index) => (
+                      <Badge key={index} variant="outline" className="text-xs">
+                        {location}
+                      </Badge>
                     ))}
+                    {trialDetails.locations.length > 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-blue-600 hover:text-blue-800 p-0 h-auto ml-2"
+                        onClick={() => setShowAllLocations(!showAllLocations)}
+                      >
+                        {showAllLocations ? 'Show Less' : `Show More (+${trialDetails.locations.length - 3})`}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -440,10 +443,112 @@ function TrialDetailsPanel({ trial, onBack, getStatusBadge, onOpenChat }: { tria
   )
 }
 
+function SuggestTrialDialog({ 
+  open, 
+  onClose, 
+  trial, 
+  patientName, 
+  onSuggest 
+}: {
+  open: boolean;
+  onClose: () => void;
+  trial: ClinicalTrial | null;
+  patientName: string;
+  onSuggest: (notes: string) => Promise<void>;
+}) {
+  const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!trial) return;
+    setIsSubmitting(true);
+    try {
+      await onSuggest(notes);
+      setNotes('');
+      onClose();
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (!trial) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl">     <DialogHeader>
+          <DialogTitle>Suggest Trial to {patientName}</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
+          {/* Trial Summary Card */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="font-semibold text-base text-gray-900 mb-2">{trial.brief_title}</h4>
+            <div className="space-y-2 text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <IconFlask className="h-4 w-4 text-gray-500" />
+                <span>NCT ID: {trial.external_id}</span>
+              </div>
+              {trial.status && (
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Status:</span>
+                  <Badge variant="outline" className="text-xs">
+                    {trial.status}
+                  </Badge>
+                </div>
+              )}
+              {trial.brief_summary && (
+                <div>
+                  <span className="font-medium">Summary:</span>
+                  <p className="text-gray-600 mt-1">
+                    {trial.brief_summary.length > 200 
+                      ? trial.brief_summary.substring(0, 200) + '...'
+                      : trial.brief_summary
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Comment Section */}
+          <div className="space-y-2">
+            <Label htmlFor="notes" className="text-sm font-medium">
+              Add a personal note for {patientName} (optional)
+            </Label>
+            <Textarea
+              id="notes"
+              placeholder="Explain why this trial might be a good fit for the patient..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                Suggesting...
+              </>
+            ) : (
+              'Suggest Trial'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function AppointmentRecommendedTrialsPage() {
   const router = useRouter()
-  const params = useParams() as { patientId: string; appointmentid: string }
-  const { patientId, appointmentid } = params
+  const params = useParams() as { appointmentId: string }
+  const { appointmentId } = params
 
   const [recommendations, setRecommendations] = useState<TranscriptRecommendations | null>(null)
   const [eligibleTrials, setEligibleTrials] = useState<ClinicalTrial[]>([])
@@ -452,10 +557,11 @@ export default function AppointmentRecommendedTrialsPage() {
   const [loading, setLoading] = useState(false)
   const [appointmentData, setAppointmentData] = useState<any>(null)
   const [expandedSummaries, setExpandedSummaries] = useState<Set<string>>(new Set())
-  const [savedTrials, setSavedTrials] = useState<Set<string>>(new Set())
-  const [savingTrial, setSavingTrial] = useState<string | null>(null)
   const [recommendedTrials, setRecommendedTrials] = useState<Set<string>>(new Set())
   const [chatPanelOpen, setChatPanelOpen] = useState(false)
+  const [patientId, setPatientId] = useState<string | undefined>(undefined)
+  const [suggestDialogOpen, setSuggestDialogOpen] = useState(false)
+  const [selectedTrialForSuggestion, setSelectedTrialForSuggestion] = useState<ClinicalTrial | null>(null)
   const { setOpen, isMobile } = useSidebar();
 
   // Collapse sidebar when chat opens, expand when closes (desktop only)
@@ -471,19 +577,24 @@ export default function AppointmentRecommendedTrialsPage() {
 
   // Fetch all data on mount/appointment change
   useEffect(() => {
-    if (appointmentid) {
+    if (appointmentId) {
       fetchAll()
     }
-  }, [appointmentid])
+  }, [appointmentId])
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
-      // Fetch appointment data first to get the date
-      const appointment = await apiClient.getAppointmentById(appointmentid)
+      // Fetch appointment data first to get the date and patient ID
+      const appointment = await apiClient.getAppointmentById(appointmentId)
       setAppointmentData(appointment)
       
-      const recs = await apiClient.getTranscriptRecommendations(appointmentid)
+      // Set patient ID from appointment data
+      if (appointment?.patient_id) {
+        setPatientId(appointment.patient_id)
+      }
+      
+      const recs = await apiClient.getTranscriptRecommendations(appointmentId)
       setRecommendations(recs)
       if (recs?.eligible_trials?.length) {
         const eligible = await apiClient.getClinicalTrialsByIds(recs.eligible_trials)
@@ -497,19 +608,15 @@ export default function AppointmentRecommendedTrialsPage() {
       } else {
         setUncertainTrials([])
       }
-      // Patient name for header
-      const patientInfo = await apiClient.getPatientNameByTranscript(appointmentid)
-      // Saved trials
-      if (patientInfo?.patientId) {
-        const savedTrialIds = await apiClient.getSavedTrials(patientInfo.patientId)
-        setSavedTrials(new Set(savedTrialIds))
-        const recommendedTrialIds = await apiClient.getRecommendedTrials(patientInfo.patientId)
+      // Get saved trials and recommended trials if we have patient ID
+      if (appointment?.patient_id) {
+        const recommendedTrialIds = await apiClient.getRecommendedTrials(appointment.patient_id)
         setRecommendedTrials(recommendedTrialIds)
       }
     } finally {
       setLoading(false)
     }
-  }, [appointmentid])
+  }, [appointmentId])
 
   // Only fetch details when a trial is selected
   const handleSelectTrial = async (trial: ClinicalTrial) => {
@@ -518,27 +625,8 @@ export default function AppointmentRecommendedTrialsPage() {
     setChatPanelOpen(false)
   }
 
-  // Save/unsave trial
-  const handleSaveTrial = async (trialId: string) => {
-    setSavingTrial(trialId)
-    try {
-      if (savedTrials.has(trialId)) {
-        await apiClient.removeSavedTrial(patientId, trialId)
-        setSavedTrials(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(trialId)
-          return newSet
-        })
-        toast.success('Trial removed from saved list')
-      } else {
-        await apiClient.saveTrial(patientId, trialId)
-        setSavedTrials(prev => new Set([...prev, trialId]))
-        toast.success('Trial added to saved list')
-      }
-    } finally {
-      setSavingTrial(null)
-    }
-  }
+  // Remove save/unsave trial logic
+  // Remove handleSaveTrial function
 
   // Format appointment date
   const formatAppointmentDate = (dateString: string | null) => {
@@ -571,6 +659,18 @@ export default function AppointmentRecommendedTrialsPage() {
   // Summary grid
   const totalTrials = eligibleTrials.length + uncertainTrials.length
 
+  const handleSuggestTrial = async (notes: string) => {
+    if (!patientId || !selectedTrialForSuggestion) return;
+    
+    const result = await apiClient.suggestTrial(patientId, selectedTrialForSuggestion.id, notes || null);
+    if (!result.error) {
+      setRecommendedTrials(prev => new Set([...prev, selectedTrialForSuggestion.id]));
+      toast.success('Trial recommended to patient');
+    } else {
+      toast.error('Failed to recommend trial');
+    }
+  }
+
   return (
     <div className="flex h-[calc(100vh-64px)]">
       {/* Master list */}
@@ -586,10 +686,10 @@ export default function AppointmentRecommendedTrialsPage() {
               <IconArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Recommended Trials</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Recommended trials</h2>
               {appointmentData && (
                 <p className="text-sm text-gray-600 font-medium">
-                  from your appointment on {formatAppointmentDate(appointmentData.created_at)}
+                  for {appointmentData.patient_name || appointmentData.patient?.name || 'Patient'} from their appointment on {formatAppointmentDate(appointmentData.created_at)}
                 </p>
               )}
             </div>
@@ -617,7 +717,6 @@ export default function AppointmentRecommendedTrialsPage() {
                 ) : (
                   eligibleTrials.map((trial, idx) => {
                     const isRecommended = recommendedTrials.has(trial.id)
-                    const isSaved = savedTrials.has(trial.id)
                     const displaySummary = trial.brief_summary
                       ? trial.brief_summary.length > 150
                         ? trial.brief_summary.substring(0, 150) + '...'
@@ -667,20 +766,26 @@ export default function AppointmentRecommendedTrialsPage() {
                           </div>
                         )}
                         <div className="flex items-center justify-end pt-0 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-6 text-xs ${isSaved ? 'bg-blue-50 border-blue-200 text-blue-700' : ''}`}
-                            onClick={e => { e.stopPropagation(); handleSaveTrial(trial.id); }}
-                            disabled={savingTrial === trial.id}
-                          >
-                            {savingTrial === trial.id ? (
-                              <IconLoader2 className="mr-1 h-3 w-3 animate-spin" />
-                            ) : (
-                              <IconBookmark className={`mr-1 h-3 w-3 ${isSaved ? 'fill-current' : ''}`} />
-                            )}
-                            {isSaved ? 'Saved' : 'Save'}
-                          </Button>
+                          {isRecommended ? (
+                            <Button variant="outline" size="sm" className="h-6 text-xs" disabled>
+                              Already recommended to patient
+                            </Button>
+                          ) : (
+                            patientId ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setSelectedTrialForSuggestion(trial);
+                                  setSuggestDialogOpen(true);
+                                }}
+                              >
+                                Recommend to patient
+                              </Button>
+                            ) : null
+                          )}
                         </div>
                       </div>
                     )
@@ -696,7 +801,6 @@ export default function AppointmentRecommendedTrialsPage() {
                 ) : (
                   uncertainTrials.map((trial, idx) => {
                     const isRecommended = recommendedTrials.has(trial.id)
-                    const isSaved = savedTrials.has(trial.id)
                     const displaySummary = trial.brief_summary
                       ? trial.brief_summary.length > 150
                         ? trial.brief_summary.substring(0, 150) + '...'
@@ -746,20 +850,26 @@ export default function AppointmentRecommendedTrialsPage() {
                           </div>
                         )}
                         <div className="flex items-center justify-end pt-0 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`h-6 text-xs ${isSaved ? 'bg-blue-50 border-blue-200 text-blue-700' : ''}`}
-                            onClick={e => { e.stopPropagation(); handleSaveTrial(trial.id); }}
-                            disabled={savingTrial === trial.id}
-                          >
-                            {savingTrial === trial.id ? (
-                              <IconLoader2 className="mr-1 h-3 w-3 animate-spin" />
-                            ) : (
-                              <IconBookmark className={`mr-1 h-3 w-3 ${isSaved ? 'fill-current' : ''}`} />
-                            )}
-                            {isSaved ? 'Saved' : 'Save'}
-                          </Button>
+                          {isRecommended ? (
+                            <Button variant="outline" size="sm" className="h-6 text-xs" disabled>
+                              Already recommended to patient
+                            </Button>
+                          ) : (
+                            patientId ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  setSelectedTrialForSuggestion(trial);
+                                  setSuggestDialogOpen(true);
+                                }}
+                              >
+                                Recommend to patient
+                              </Button>
+                            ) : null
+                          )}
                         </div>
                       </div>
                     )
@@ -776,15 +886,19 @@ export default function AppointmentRecommendedTrialsPage() {
           trial={selectedTrial} 
           onBack={() => setSelectedTrial(null)} 
           getStatusBadge={getStatusBadge} 
-          onOpenChat={() => setChatPanelOpen(true)}
         />
       </div>
-      {/* Chat panel (only when open) */}
-      <TrialChatPanel 
-        open={chatPanelOpen} 
-        onClose={() => setChatPanelOpen(false)} 
-        patientId={patientId} 
-        trial={selectedTrial} 
+      {/* Remove Chat panel */}
+      
+      <SuggestTrialDialog
+        open={suggestDialogOpen}
+        onClose={() => {
+          setSuggestDialogOpen(false)
+          setSelectedTrialForSuggestion(null)
+        }}
+        trial={selectedTrialForSuggestion}
+        patientName={appointmentData?.patient_name || appointmentData?.patient?.name || 'Patient'}
+        onSuggest={handleSuggestTrial}
       />
     </div>
   )

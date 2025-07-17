@@ -161,6 +161,8 @@ export function AppointmentsTable({
   const handleViewRecommendedTrials = (appointmentId: string) => {
     if (patientId) {
       router.push(`/patient/${patientId}/appointments/${appointmentId}/trials`)
+    } else {
+        router.push(`/admin/appointments/${appointmentId}/trials`)
     }
   }
 

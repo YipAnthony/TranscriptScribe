@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import type { Patient } from '@/types'
+import { IconUser, IconSettings } from '@tabler/icons-react'
 
 export default function Home() {
   const { user, signOut } = useAuth()
@@ -83,30 +84,36 @@ export default function Home() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 max-w-2xl mx-auto">
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleAdminPortal}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow min-h-[320px] flex flex-col justify-between" onClick={handleAdminPortal}>
               <CardHeader>
-                <CardTitle className="text-2xl">Admin Portal</CardTitle>
+                <div className="flex items-center gap-3 mb-2">
+                  <IconSettings className="h-7 w-7 text-blue-600" />
+                  <CardTitle className="text-2xl">Admin Portal</CardTitle>
+                </div>
                 <CardDescription>
                   Pretend to be an admin. Manage patients, appointments, transcripts, and create trial recommendations
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="mt-auto">
                 <Button className="w-full" variant="default">
                   Access Admin Portal
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={handleCardClick}>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow min-h-[320px] flex flex-col justify-between" onClick={handleCardClick}>
               <CardHeader>
-                <CardTitle className="text-2xl">Patient Portal</CardTitle>
+                <div className="flex items-center gap-3 mb-2">
+                  <IconUser className="h-7 w-7 text-green-600" />
+                  <CardTitle className="text-2xl">Patient Portal</CardTitle>
+                </div>
                 <CardDescription>
                   Pretend to be a patient. View appointments and clinical trial recommendations.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Select Patient to Proxy as:</label>
+              <CardContent className="mt-auto">
+                <div className="rounded-lg border bg-gray-50 p-4 mb-4">
+                  <label className="text-sm font-medium text-gray-700 block mb-2">Select Patient to Proxy as:</label>
                   <Select value={selectedPatient} onValueChange={handlePatientSelect}>
                     <SelectTrigger>
                       <SelectValue placeholder={loading ? "Loading patients..." : "Select a patient"} />
@@ -122,7 +129,7 @@ export default function Home() {
                 </div>
                 <Button 
                   className="w-full" 
-                  variant="outline"
+                  variant="default"
                   disabled={!selectedPatient || loading}
                   onClick={(e) => {
                     e.stopPropagation()

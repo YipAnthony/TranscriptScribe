@@ -183,6 +183,31 @@ class DatabasePort(ABC):
         pass
 
     @abstractmethod
+    def get_chat_session_by_patient_and_trial(self, patient_id: str, clinical_trial_id: str) -> Optional[ChatSession]:
+        """
+        Get chat session by patient ID and clinical trial ID
+        Args:
+            patient_id: Patient ID
+            clinical_trial_id: Clinical trial ID
+        Returns:
+            Optional[ChatSession]: Chat session domain object or None if not found
+        """
+        pass
+
+    @abstractmethod
+    def create_chat_session(self, patient_id: str, clinical_trial_id: str, title: Optional[str] = None) -> ChatSession:
+        """
+        Create a new chat session
+        Args:
+            patient_id: Patient ID
+            clinical_trial_id: Clinical trial ID
+            title: Optional session title
+        Returns:
+            ChatSession: The created chat session domain object
+        """
+        pass
+
+    @abstractmethod
     def get_chat_messages(self, session_id: str, limit: int = 4) -> List[ChatMessage]:
         """
         Get the most recent chat messages for a session

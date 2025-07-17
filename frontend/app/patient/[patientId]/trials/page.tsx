@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, Fragment } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -87,6 +87,7 @@ export default function PatientTrialsPage() {
   const [showFullDescription, setShowFullDescription] = useState(false)
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set())
   const [showRejectedRecommendations, setShowRejectedRecommendations] = useState(false)
+  // Remove showAcceptedRecommendations state
 
   useEffect(() => {
     if (patientId) {
@@ -310,18 +311,6 @@ export default function PatientTrialsPage() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Accepted Recommendations</CardTitle>
-                <IconCheck className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{acceptedRecommendations.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Trials you've accepted
-                </p>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Saved Trials Table */}
@@ -466,197 +455,110 @@ export default function PatientTrialsPage() {
                     </TableHeader>
                     <TableBody>
                       {providerRecommendations.map((recommendation) => (
-                        <TableRow key={recommendation.id}>
-                          <TableCell className="font-medium">
-                            {recommendation.trial.external_id}
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            <div className="font-medium truncate" title={recommendation.trial.brief_title}>
-                              {recommendation.trial.brief_title}
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            <div className="text-sm">
-                              {recommendation.notes ? (
-                                <div>
-                                  {expandedNotes.has(recommendation.id) 
-                                    ? recommendation.notes
-                                    : truncateText(recommendation.notes, 50)
-                                  }
-                                  {recommendation.notes.length > 50 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setExpandedNotes(prev => {
-                                          const newSet = new Set(prev)
-                                          if (newSet.has(recommendation.id)) {
-                                            newSet.delete(recommendation.id)
-                                          } else {
-                                            newSet.add(recommendation.id)
-                                          }
-                                          return newSet
-                                        })
-                                      }}
-                                      className="ml-2 text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
-                                    >
-                                      {expandedNotes.has(recommendation.id) ? 'Show Less' : 'Show More'}
-                                    </Button>
-                                  )}
+                        <Fragment key={recommendation.id}>
+                          <TableRow>
+                            <TableCell className="font-medium">
+                              {recommendation.trial.external_id}
+                            </TableCell>
+                            <TableCell className="max-w-xs">
+                              <div className="font-medium truncate" title={recommendation.trial.brief_title}>
+                                {recommendation.trial.brief_title}
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-xs">
+                              <div className="text-sm">
+                                {recommendation.notes ? (
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate">
+                                      {truncateText(recommendation.notes, 50)}
+                                    </span>
+                                    {recommendation.notes.length > 50 && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setExpandedNotes(prev => {
+                                            const newSet = new Set(prev)
+                                            if (newSet.has(recommendation.id)) {
+                                              newSet.delete(recommendation.id)
+                                            } else {
+                                              newSet.add(recommendation.id)
+                                            }
+                                            return newSet
+                                          })
+                                        }}
+                                        className="p-1 h-6 w-6 text-gray-500 hover:text-gray-700"
+                                      >
+                                        {expandedNotes.has(recommendation.id) ? (
+                                          <IconChevronDown className="h-3 w-3" />
+                                        ) : (
+                                          <IconChevronRight className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400">No notes provided</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {formatDate(recommendation.created_at)}
+                            </TableCell>
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <IconDots className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuItem
+                                    onClick={() => handleSaveTrial(recommendation.trial.id, recommendation.id)}
+                                    className="text-green-600 focus:text-green-600"
+                                  >
+                                    <IconCheck className="mr-2 h-4 w-4" />
+                                    Accept & Save
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedTrial(recommendation.trial)
+                                      fetchTrialDetails(recommendation.trial.id)
+                                      setDetailsDialogOpen(true)
+                                    }}
+                                    disabled={loadingTrialDetails.has(recommendation.trial.id)}
+                                  >
+                                    {loadingTrialDetails.has(recommendation.trial.id) ? (
+                                      <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <IconEye className="mr-2 h-4 w-4" />
+                                    )}
+                                    View Details
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleRejectRecommendation(recommendation.id)}
+                                    className="text-red-600 focus:text-red-600"
+                                  >
+                                    <IconTrash className="mr-2 h-4 w-4" />
+                                    Reject
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                          {/* Expanded Notes Row */}
+                          {expandedNotes.has(recommendation.id) && recommendation.notes && recommendation.notes.length > 50 && (
+                            <TableRow>
+                              <TableCell colSpan={5} className="bg-gray-50 p-4">
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-900">Provider Note: </span>
+                                  <span className="text-gray-700 whitespace-pre-wrap">{recommendation.notes}</span>
                                 </div>
-                              ) : (
-                                <span className="text-gray-500">No notes provided</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(recommendation.created_at)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveTrial(recommendation.trial.id, recommendation.id)}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <IconCheck className="mr-1 h-3 w-3" />
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRejectRecommendation(recommendation.id)}
-                                className="text-red-600 border-red-200 hover:bg-red-50"
-                              >
-                                <IconTrash className="mr-1 h-3 w-3" />
-                                Reject
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Accepted Recommendations Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <IconCheck className="h-5 w-5" />
-                Accepted Recommendations
-              </CardTitle>
-              <CardDescription>
-                Clinical trials you've accepted from your healthcare provider.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {acceptedRecommendations.length === 0 ? (
-                <div className="text-center py-8">
-                  <IconCheck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No accepted recommendations</h3>
-                  <p className="text-gray-500">
-                    You haven't accepted any provider recommendations yet.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Trial ID</TableHead>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Provider Notes</TableHead>
-                        <TableHead>Accepted Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {acceptedRecommendations.map((recommendation) => (
-                        <TableRow key={recommendation.id}>
-                          <TableCell className="font-medium">
-                            {recommendation.trial.external_id}
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            <div className="font-medium truncate" title={recommendation.trial.brief_title}>
-                              {recommendation.trial.brief_title}
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-xs">
-                            <div className="text-sm">
-                              {recommendation.notes ? (
-                                <div>
-                                  {expandedNotes.has(recommendation.id) 
-                                    ? recommendation.notes
-                                    : truncateText(recommendation.notes, 50)
-                                  }
-                                  {recommendation.notes.length > 50 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setExpandedNotes(prev => {
-                                          const newSet = new Set(prev)
-                                          if (newSet.has(recommendation.id)) {
-                                            newSet.delete(recommendation.id)
-                                          } else {
-                                            newSet.add(recommendation.id)
-                                          }
-                                          return newSet
-                                        })
-                                      }}
-                                      className="ml-2 text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
-                                    >
-                                      {expandedNotes.has(recommendation.id) ? 'Show Less' : 'Show More'}
-                                    </Button>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-gray-500">No notes provided</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(recommendation.created_at)}
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <IconDots className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedTrial(recommendation.trial)
-                                    fetchTrialDetails(recommendation.trial.id)
-                                    setDetailsDialogOpen(true)
-                                  }}
-                                  disabled={loadingTrialDetails.has(recommendation.trial.id)}
-                                >
-                                  {loadingTrialDetails.has(recommendation.trial.id) ? (
-                                    <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <IconEye className="mr-2 h-4 w-4" />
-                                  )}
-                                  View Details
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleRejectSavedTrial(recommendation.id)}
-                                  className="text-red-600 focus:text-red-600"
-                                >
-                                  <IconTrash className="mr-2 h-4 w-4" />
-                                  Reject
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
                       ))}
                     </TableBody>
                   </Table>
@@ -702,63 +604,103 @@ export default function PatientTrialsPage() {
                       </TableHeader>
                       <TableBody>
                         {rejectedRecommendations.map((recommendation) => (
-                          <TableRow key={recommendation.id}>
-                            <TableCell className="font-medium">
-                              {recommendation.trial.external_id}
-                            </TableCell>
-                            <TableCell className="max-w-xs">
-                              <div className="font-medium truncate" title={recommendation.trial.brief_title}>
-                                {recommendation.trial.brief_title}
-                              </div>
-                            </TableCell>
-                            <TableCell className="max-w-xs">
-                              <div className="text-sm">
-                                {recommendation.notes ? (
-                                  <div>
-                                    {expandedNotes.has(recommendation.id) 
-                                      ? recommendation.notes
-                                      : truncateText(recommendation.notes, 50)
-                                    }
-                                    {recommendation.notes.length > 50 && (
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                          setExpandedNotes(prev => {
-                                            const newSet = new Set(prev)
-                                            if (newSet.has(recommendation.id)) {
-                                              newSet.delete(recommendation.id)
-                                            } else {
-                                              newSet.add(recommendation.id)
-                                            }
-                                            return newSet
-                                          })
-                                        }}
-                                        className="ml-2 text-xs text-blue-600 hover:text-blue-800 p-0 h-auto"
-                                      >
-                                        {expandedNotes.has(recommendation.id) ? 'Show Less' : 'Show More'}
-                                      </Button>
-                                    )}
+                          <Fragment key={recommendation.id}>
+                            <TableRow>
+                              <TableCell className="font-medium">
+                                {recommendation.trial.external_id}
+                              </TableCell>
+                              <TableCell className="max-w-xs">
+                                <div className="font-medium truncate" title={recommendation.trial.brief_title}>
+                                  {recommendation.trial.brief_title}
+                                </div>
+                              </TableCell>
+                              <TableCell className="max-w-xs">
+                                <div className="text-sm">
+                                  {recommendation.notes ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="truncate">
+                                        {truncateText(recommendation.notes, 50)}
+                                      </span>
+                                      {recommendation.notes.length > 50 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            setExpandedNotes(prev => {
+                                              const newSet = new Set(prev)
+                                              if (newSet.has(recommendation.id)) {
+                                                newSet.delete(recommendation.id)
+                                              } else {
+                                                newSet.add(recommendation.id)
+                                              }
+                                              return newSet
+                                            })
+                                          }}
+                                          className="p-1 h-6 w-6 text-gray-500 hover:text-gray-700"
+                                        >
+                                          {expandedNotes.has(recommendation.id) ? (
+                                            <IconChevronDown className="h-3 w-3" />
+                                          ) : (
+                                            <IconChevronRight className="h-3 w-3" />
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-400">No notes provided</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {formatDate(recommendation.created_at)}
+                              </TableCell>
+                              <TableCell>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                      <IconDots className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                      onClick={() => handleAcceptAndSaveRejected(recommendation)}
+                                      className="text-green-600 focus:text-green-600"
+                                    >
+                                      <IconCheck className="mr-2 h-4 w-4" />
+                                      Accept & Save
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        setSelectedTrial(recommendation.trial)
+                                        fetchTrialDetails(recommendation.trial.id)
+                                        setDetailsDialogOpen(true)
+                                      }}
+                                      disabled={loadingTrialDetails.has(recommendation.trial.id)}
+                                    >
+                                      {loadingTrialDetails.has(recommendation.trial.id) ? (
+                                        <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <IconEye className="mr-2 h-4 w-4" />
+                                      )}
+                                      View Details
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                            {/* Expanded Notes Row */}
+                            {expandedNotes.has(recommendation.id) && recommendation.notes && recommendation.notes.length > 50 && (
+                              <TableRow>
+                                <TableCell colSpan={5} className="bg-gray-50 p-4">
+                                  <div className="text-sm">
+                                    <span className="font-medium text-gray-900">Provider Note: </span>
+                                    <span className="text-gray-700 whitespace-pre-wrap">{recommendation.notes}</span>
                                   </div>
-                                ) : (
-                                  <span className="text-gray-500">No notes provided</span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {formatDate(recommendation.created_at)}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                onClick={() => handleAcceptAndSaveRejected(recommendation)}
-                                className="bg-green-600 hover:bg-green-700"
-                              >
-                                <IconCheck className="mr-1 h-3 w-3" />
-                                Accept & Save
-                              </Button>
-                            </TableCell>
-                          </TableRow>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
                         ))}
                       </TableBody>
                     </Table>

@@ -22,7 +22,11 @@ class ChatService:
         user_message: str,
     ) -> None:
         patient: Patient = self.db_port.get_patient(patient_id)
-        trial: ClinicalTrial = await self.clinical_trials_port.get_clinical_trial(clinical_trial_id)
+        # Get trial from database first to get external_id, then fetch full details from CTG
+        trial_from_db = self.db_port.get_clinical_trial(clinical_trial_id)
+        if not trial_from_db:
+            raise Exception(f"Clinical trial with ID {clinical_trial_id} not found in database")
+        trial: ClinicalTrial = await self.clinical_trials_port.get_clinical_trial(trial_from_db.external_id)
         # Store user message first
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
         self.db_port.create_chat_message(session_id=session_id, sender="user", message=user_message, created_at=now, metadata={})

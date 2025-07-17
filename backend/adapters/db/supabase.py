@@ -521,6 +521,40 @@ class SupabaseAdapter(DatabasePort):
             logger.error(f"Error getting chat session {session_id}: {e}")
             raise
 
+    def get_chat_session_by_patient_and_trial(self, patient_id: str, clinical_trial_id: str) -> Optional[ChatSession]:
+        """
+        Get chat session by patient ID and clinical trial ID
+        """
+        try:
+            result = self.client.table("chat_sessions").select("*").eq("patient_id", patient_id).eq("clinical_trial_id", clinical_trial_id).single().execute()
+            if result.data:
+                return self._row_to_chat_session(result.data)
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"Error getting chat session for patient {patient_id} and trial {clinical_trial_id}: {e}")
+            return None
+
+    def create_chat_session(self, patient_id: str, clinical_trial_id: str, title: Optional[str] = None) -> ChatSession:
+        """
+        Create a new chat session
+        """
+        try:
+            row = {
+                "patient_id": patient_id,
+                "clinical_trial_id": clinical_trial_id,
+                "title": title,
+                "status": "active"
+            }
+            result = self.client.table("chat_sessions").insert(row).execute()
+            if result.data:
+                return self._row_to_chat_session(result.data[0])
+            else:
+                raise Exception("Failed to create chat session - no data returned")
+        except Exception as e:
+            logger.error(f"Error creating chat session: {e}")
+            raise
+
     def get_chat_messages(self, session_id: str, limit: int = 4) -> List[ChatMessage]:
         """
         Get the most recent chat messages for a session, ordered oldest to newest

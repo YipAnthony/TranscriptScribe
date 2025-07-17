@@ -51,10 +51,8 @@ export function PatientHeader() {
     const patient = patients.find(p => p.id === patientId)
     if (patient) {
       setSelectedPatient(patient)
-      // Navigate to the same page but with the new patient ID
-      const currentPath = pathname
-      const newPath = currentPath.replace(/\/patient\/[^\/]+/, `/patient/${patientId}`)
-      router.push(newPath)
+      // Always redirect to the patient's appointments page when changing patient proxy
+      router.push(`/patient/${patientId}/appointments`)
     }
   }
 
