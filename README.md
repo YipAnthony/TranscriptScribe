@@ -2,15 +2,11 @@
 
 AI-powered transcript processing and clinical trial matching platform.
 
-## Functional Requirements
-
-**Users should be able to:**
+## Key Functions
 1. **Upload and process medical transcripts** - Healthcare providers can upload patient consultation transcripts and have them automatically analyzed by AI
 2. **Generate clinical trial recommendations** - The system should match patients to relevant clinical trials based on their medical profile extracted from transcripts + an external api (CTG)
-3 **Chat with AI about trials** - Patients should be able to ask questions about clinical trials and get intelligent responses
+3. **Chat with AI about trials** - Patients should be able to ask questions about clinical trials and get intelligent responses
 4. **Manage patient data** - Store and retrieve patient information, appointments, and trial recommendations
-5. **Access role-based portals** - Different interfaces for admins (healthcare providers) and patients
-
 
 ## Core Entities
 
