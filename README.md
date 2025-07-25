@@ -24,7 +24,7 @@ AI-powered transcript processing and clinical trial matching platform.
 - REST endpoints documented here:  [https://transcriptscribe-production.up.railway.app/docs](https://transcriptscribe-production.up.railway.app/docs)
 
 ## Architecture Overview
-![alt text](https://github.com/YipAnthony/TranscriptScribe/commits/main/design.png "High Level Design")
+![high level design](https://github.com/YipAnthony/TranscriptScribe/blob/main/design.png)
 
 ### Architecture
 - **Frontend Layer:** Next.js with TypeScript, ShadCN UI, Supabase Client + Auth
