@@ -24,27 +24,8 @@ AI-powered transcript processing and clinical trial matching platform.
 - REST endpoints documented here:  [https://transcriptscribe-production.up.railway.app/docs](https://transcriptscribe-production.up.railway.app/docs)
 
 ## Architecture Overview
-```
-┌───────────────┐    ┌───────────────┐    ┌─────────────────────────┐
-│   Frontend    │    │   Backend     │    │          Ports          │
-│ (Next.js +    │◄──►│ (FastAPI +    │◄──►│  ┌───────────────┐      │
-│  Supabase)    │    │  Python)      │    │  │  DB Port      │      │
-└───────────────┘    └───────────────┘    │  │  LLM Port     │      │
-                                          │  │  Trials Port  │      │
-                                          │  │               │      │
-                                          │  └─────┬─┬─┬─────┘      │
-                                          │        │ │ │            │
-                                          └────────┼─┼─┼────────────┘
-                                                   │ │ │
-                                                   │ │ │
-                     ┌────────────────────────┬────┴─┴─┴───────────────────────┐
-                     │                        │                                │                          
-             ┌───────────────┐        ┌───────────────┐          ┌────────────────────┐   
-             │ Supabase      │        │   Gemini      │          │     CTG API        │
-             │ (DB Adapter)  │        │ (LLM Adapter) │          │ (Trials Adapter)   │
-             └───────────────┘        └───────────────┘          └────────────────────┘
-                                                                
-```
+![alt text](https://github.com/YipAnthony/TranscriptScribe/commits/main/design.png "High Level Design")
+
 ### Architecture
 - **Frontend Layer:** Next.js with TypeScript, ShadCN UI, Supabase Client + Auth
 - **Backend Layer:** FastAPI (Python), Hexagonal architecture (Ports/Adapters)
